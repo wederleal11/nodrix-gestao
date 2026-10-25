@@ -24,6 +24,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isSuperAdmin: boolean;
   loading: boolean;
+  authError: string | null;
   allUsers: UserProfile[];
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -38,6 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [activeUserId, setActiveUserId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Test connection on boot
   useEffect(() => {
@@ -55,6 +57,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setLoading(true);
+      setAuthError(null);
+      setProfile(null);
       setFirebaseUser(user);
       if (user) {
         try {
@@ -102,11 +107,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch (e) {
           console.error('Error loading user profile:', e);
+          setProfile(null);
+          setActiveUserId('');
+          setAuthError('O Google confirmou sua conta, mas o Nodrix não conseguiu carregar seu cadastro no Firestore. Verifique as permissões do banco e se o seu usuário está autorizado.');
         }
       } else {
         setProfile(null);
         setActiveUserId('');
       }
+      setLoading(false);
+    }, (error) => {
+      console.error('Firebase auth state error:', error);
+      setAuthError('Não foi possível verificar a sessão com o Firebase. Recarregue a página e tente novamente.');
       setLoading(false);
     });
 
@@ -138,9 +150,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await signInWithPopup(auth, googleAuthProvider);
     } catch (error) {
       console.error('Google Sign In Error:', error);
-      throw error;
-    } finally {
       setLoading(false);
+      throw error;
     }
   };
 
@@ -168,6 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdmin,
         isSuperAdmin,
         loading,
+        authError,
         allUsers,
         signInWithGoogle,
         signOut,

@@ -1,6 +1,37 @@
 import React, { useState } from 'react';
 import { Shield, ArrowRight, CheckCircle2, Lock, Users, Target } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { FirebaseError } from 'firebase/app';
+
+// Avoid exposing raw SDK errors to users while keeping the specific recovery action.
+function describeGoogleSignInError(error: unknown): string {
+  const code = error instanceof FirebaseError ? error.code : (
+    typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code: unknown }).code)
+      : ''
+  );
+
+  switch (code) {
+    case 'auth/unauthorized-domain':
+      return `Este domínio (${window.location.hostname}) não está autorizado no Firebase. O administrador deve adicioná-lo em Authentication > Settings > Authorized domains, no projeto Firebase usado pelo Nodrix Gestão.`;
+    case 'auth/operation-not-allowed':
+      return 'O login com Google está desabilitado neste projeto Firebase. O administrador precisa habilitar o provedor Google em Authentication > Sign-in method.';
+    case 'auth/popup-blocked':
+      return 'O navegador bloqueou a janela de login do Google. Permita pop-ups para este site e tente novamente.';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return 'A autenticação do Google não foi concluída. Clique em Entrar com Conta Google para tentar novamente.';
+    case 'auth/network-request-failed':
+      return 'Não foi possível contatar o Firebase. Confira sua conexão e tente novamente.';
+    case 'auth/invalid-api-key':
+    case 'auth/app-not-authorized':
+      return 'A configuração do Firebase para este aplicativo não foi aceita. Entre em contato com o administrador.';
+    default:
+      return code
+        ? `Falha ao entrar com Google (${code}). Entre em contato com o administrador se o erro persistir.`
+        : 'Não foi possível concluir o login com Google. Tente novamente ou contate o administrador.';
+  }
+}
 
 export const LoginView: React.FC = () => {
   const { signInWithGoogle, loading } = useAuth();
@@ -11,11 +42,7 @@ export const LoginView: React.FC = () => {
     try {
       await signInWithGoogle();
     } catch (err: unknown) {
-      setErrorMsg(
-        err instanceof Error
-          ? err.message
-          : 'Falha na autenticação Google. Por favor, tente novamente.'
-      );
+      setErrorMsg(describeGoogleSignInError(err));
     }
   };
 

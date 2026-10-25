@@ -40,7 +40,7 @@ import type {
 } from './types';
 
 const MainApp: React.FC = () => {
-  const { firebaseUser, profile, activeProfile, loading, allUsers, isAdmin } = useAuth();
+  const { firebaseUser, profile, activeProfile, loading, authError, signOut, allUsers, isAdmin } = useAuth();
 
   // Navigation view
   const [currentView, setCurrentView] = useState<string>('dashboard');
@@ -110,6 +110,28 @@ const MainApp: React.FC = () => {
   // Not logged in -> Show corporate login view
   if (!firebaseUser) {
     return <LoginView />;
+  }
+
+  // An authenticated Firebase session is not enough: require a loaded Firestore profile.
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-200 flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-xl border border-amber-800/70 bg-slate-900 p-6 space-y-4 text-center">
+          <h2 className="text-lg font-bold text-white">Não foi possível concluir o acesso</h2>
+          <p className="text-sm text-slate-300">
+            {authError || 'Seu login Google foi confirmado, mas seu cadastro ainda não está disponível.'}
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button type="button" onClick={() => window.location.reload()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500">
+              Tentar novamente
+            </button>
+            <button type="button" onClick={() => void signOut()} className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold hover:bg-slate-800">
+              Sair da conta
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // User pending approval
