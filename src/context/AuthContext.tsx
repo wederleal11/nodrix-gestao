@@ -1,0 +1,188 @@
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import {
+  type User,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut as fbSignOut,
+} from 'firebase/auth';
+import { auth, googleAuthProvider, testConnection } from '../lib/firebase';
+import {
+  getUserProfile,
+  upsertUserProfile,
+  seedInitialNodrixData,
+  INITIAL_ADMIN_EMAIL,
+  subscribeUsers,
+} from '../services/db';
+import type { UserProfile, UserRole } from '../types';
+
+interface AuthContextType {
+  firebaseUser: User | null;
+  profile: UserProfile | null;
+  activeProfile: UserProfile | null;
+  activeUserId: string;
+  setActiveUserId: (id: string) => void;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  loading: boolean;
+  allUsers: UserProfile[];
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
+  updateProfileDetails: (updates: Partial<UserProfile>) => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [activeUserId, setActiveUserId] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // Test connection on boot
+  useEffect(() => {
+    testConnection();
+  }, []);
+
+  // Subscribe to all users so we have current team members list
+  useEffect(() => {
+    if (!firebaseUser) return;
+    const unsub = subscribeUsers((users) => {
+      setAllUsers(users);
+    });
+    return () => unsub();
+  }, [firebaseUser]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setFirebaseUser(user);
+      if (user) {
+        try {
+          const email = user.email || '';
+          const isInitialAdmin = email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase();
+
+          let userProf = await getUserProfile(user.uid);
+
+          if (!userProf) {
+            // Check if there was a pre-seeded member with this email
+            const matchedPreseeded = allUsers.find(
+              (u) => u.email.toLowerCase() === email.toLowerCase()
+            );
+
+            userProf = {
+              uid: user.uid,
+              name: user.displayName || (isInitialAdmin ? 'Weder Leal' : email.split('@')[0]),
+              email,
+              role: isInitialAdmin ? 'admin' : (matchedPreseeded?.role || 'collaborator'),
+              isSuperAdmin: isInitialAdmin,
+              title: isInitialAdmin ? 'Super Admin & Gestor' : (matchedPreseeded?.title || 'Desenvolvedor'),
+              availability: matchedPreseeded?.availability || '40h semanais',
+              avatarUrl: user.photoURL || undefined,
+              status: isInitialAdmin ? 'active' : (matchedPreseeded ? 'active' : 'active'),
+              createdAt: new Date().toISOString(),
+            };
+            await upsertUserProfile(userProf);
+          } else if (isInitialAdmin && (!userProf.isSuperAdmin || userProf.role !== 'admin')) {
+            userProf.role = 'admin';
+            userProf.isSuperAdmin = true;
+            userProf.status = 'active';
+            await upsertUserProfile(userProf);
+          }
+
+          setProfile(userProf);
+          setActiveUserId(userProf.uid);
+
+          // Seed default projects and tasks if admin
+          if (isInitialAdmin) {
+            await seedInitialNodrixData({
+              id: userProf.uid,
+              name: userProf.name,
+              email: userProf.email,
+            });
+          }
+        } catch (e) {
+          console.error('Error loading user profile:', e);
+        }
+      } else {
+        setProfile(null);
+        setActiveUserId('');
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const activeProfile = useMemo(() => {
+    if (!activeUserId) return profile;
+    if (profile && profile.uid === activeUserId) return profile;
+    return allUsers.find((u) => u.uid === activeUserId) || profile;
+  }, [activeUserId, profile, allUsers]);
+
+  const isSuperAdmin = useMemo(() => {
+    if (!activeProfile) return false;
+    return (
+      activeProfile.email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase() ||
+      activeProfile.isSuperAdmin === true
+    );
+  }, [activeProfile]);
+
+  const isAdmin = useMemo(() => {
+    if (!activeProfile) return false;
+    return activeProfile.role === 'admin' || isSuperAdmin;
+  }, [activeProfile, isSuperAdmin]);
+
+  const signInWithGoogle = async () => {
+    try {
+      setLoading(true);
+      await signInWithPopup(auth, googleAuthProvider);
+    } catch (error) {
+      console.error('Google Sign In Error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    await fbSignOut(auth);
+    setProfile(null);
+    setActiveUserId('');
+  };
+
+  const updateProfileDetails = async (updates: Partial<UserProfile>) => {
+    if (!profile) return;
+    const updated = { ...profile, ...updates };
+    await upsertUserProfile(updated);
+    setProfile(updated);
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        firebaseUser,
+        profile,
+        activeProfile,
+        activeUserId,
+        setActiveUserId,
+        isAdmin,
+        isSuperAdmin,
+        loading,
+        allUsers,
+        signInWithGoogle,
+        signOut,
+        updateProfileDetails,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export function useAuth(): AuthContextType {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}

@@ -1,0 +1,225 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and role in Nodrix Gestão",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 120 },
+        "role": { "type": "string", "enum": ["admin", "collaborator"] },
+        "title": { "type": "string", "maxLength": 80 },
+        "availability": { "type": "string", "maxLength": 50 },
+        "avatarUrl": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["active", "pending", "inactive"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "name", "email", "role", "status"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A software project managed by Nodrix Gestão",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "client": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "leadId": { "type": "string", "maxLength": 128 },
+        "leadName": { "type": "string", "maxLength": 100 },
+        "memberIds": { "type": "array" },
+        "status": { "type": "string", "enum": ["Planejamento", "Ativo", "Bloqueado", "Em validação", "Concluído", "Arquivado"] },
+        "priority": { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
+        "startDate": { "type": "string", "maxLength": 30 },
+        "targetDate": { "type": "string", "maxLength": 30 },
+        "nextMilestone": { "type": "string", "maxLength": 200 },
+        "completionCriteria": { "type": "string", "maxLength": 1000 },
+        "repoUrl": { "type": "string", "maxLength": 500 },
+        "docsUrl": { "type": "string", "maxLength": 500 },
+        "isArchived": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "createdById": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["name", "status", "priority", "createdById"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A delivery unit / task within a project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "projectId": { "type": "string", "maxLength": 128 },
+        "projectName": { "type": "string", "maxLength": 120 },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "expectedResult": { "type": "string", "maxLength": 1000 },
+        "acceptanceCriteria": { "type": "string", "maxLength": 1500 },
+        "assigneeId": { "type": "string", "maxLength": 128 },
+        "assigneeName": { "type": "string", "maxLength": 100 },
+        "priority": { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
+        "status": { "type": "string", "enum": ["backlog", "planned", "in_progress", "blocked", "awaiting_validation", "completed", "cancelled"] },
+        "deadline": { "type": "string", "maxLength": 30 },
+        "plannedWeek": { "type": "string", "maxLength": 30 },
+        "checklist": { "type": "array" },
+        "links": { "type": "array" },
+        "dependencies": { "type": "string", "maxLength": 500 },
+        "blockerReason": { "type": "string", "maxLength": 500 },
+        "blockerDependency": { "type": "string", "maxLength": 500 },
+        "blockerNextAction": { "type": "string", "maxLength": 500 },
+        "blockerActionOwner": { "type": "string", "maxLength": 100 },
+        "deliverySummary": { "type": "string", "maxLength": 1000 },
+        "deliveryEvidence": { "type": "string", "maxLength": 1000 },
+        "submittedAt": { "type": "string", "maxLength": 50 },
+        "validatorId": { "type": "string", "maxLength": 128 },
+        "validatorName": { "type": "string", "maxLength": 100 },
+        "validatedAt": { "type": "string", "maxLength": 50 },
+        "validationResult": { "type": "string", "maxLength": 50 },
+        "rejectionReason": { "type": "string", "maxLength": 500 },
+        "createdById": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["projectId", "title", "priority", "status", "createdById"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable log of actions and changes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "taskId": { "type": "string", "maxLength": 128 },
+        "projectId": { "type": "string", "maxLength": 128 },
+        "action": { "type": "string", "maxLength": 100 },
+        "actorId": { "type": "string", "maxLength": 128 },
+        "actorName": { "type": "string", "maxLength": 100 },
+        "actorEmail": { "type": "string", "maxLength": 120 },
+        "details": { "type": "string", "maxLength": 1000 },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["action", "actorId", "actorName", "details", "timestamp"]
+    },
+    "WeeklyEvent": {
+      "title": "WeeklyEvent",
+      "description": "Calendar event or delivery commitment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 150 },
+        "type": { "type": "string", "enum": ["reuniao", "alinhamento", "visita", "validacao", "entrega", "outro"] },
+        "date": { "type": "string", "maxLength": 30 },
+        "time": { "type": "string", "maxLength": 20 },
+        "projectId": { "type": "string", "maxLength": 128 },
+        "projectName": { "type": "string", "maxLength": 120 },
+        "assigneeIds": { "type": "array" },
+        "description": { "type": "string", "maxLength": 500 },
+        "createdById": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "type", "date", "createdById"]
+    },
+    "DailyCheckin": {
+      "title": "DailyCheckin",
+      "description": "Daily morning check-in and evening checkout",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "date": { "type": "string", "maxLength": 30 },
+        "morningPriority": { "type": "string", "maxLength": 500 },
+        "morningGoal": { "type": "string", "maxLength": 500 },
+        "morningBlocker": { "type": "string", "maxLength": 500 },
+        "eveningDelivered": { "type": "string", "maxLength": 500 },
+        "eveningEvidence": { "type": "string", "maxLength": 500 },
+        "eveningPending": { "type": "string", "maxLength": 500 },
+        "eveningNextStep": { "type": "string", "maxLength": 500 },
+        "submittedMorningAt": { "type": "string", "maxLength": 50 },
+        "submittedEveningAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["userId", "userName", "date"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "Individual professional development record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "date": { "type": "string", "maxLength": 30 },
+        "type": { "type": "string", "enum": ["reconhecimento", "orientacao", "alinhamento", "melhoria"] },
+        "fact": { "type": "string", "maxLength": 1000 },
+        "impact": { "type": "string", "maxLength": 1000 },
+        "expectedBehavior": { "type": "string", "maxLength": 1000 },
+        "combinedCommitment": { "type": "string", "maxLength": 1000 },
+        "followUpDeadline": { "type": "string", "maxLength": 30 },
+        "followUpResult": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["em_acompanhamento", "evoluiu", "recorrente", "concluido"] },
+        "sharedWithUser": { "type": "boolean" },
+        "privateManagerNote": { "type": "string", "maxLength": 1500 },
+        "createdById": { "type": "string", "maxLength": 128 },
+        "createdByName": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "date", "type", "fact", "status", "createdById"]
+    },
+    "PriorityRequest": {
+      "title": "PriorityRequest",
+      "description": "Collaborator request to change task priority",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "taskId": { "type": "string", "maxLength": 128 },
+        "taskTitle": { "type": "string", "maxLength": 200 },
+        "requesterId": { "type": "string", "maxLength": 128 },
+        "requesterName": { "type": "string", "maxLength": 100 },
+        "requestedPriority": { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
+        "reason": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "reviewedById": { "type": "string", "maxLength": 128 },
+        "reviewedByName": { "type": "string", "maxLength": 100 },
+        "reviewedAt": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["taskId", "taskTitle", "requesterId", "requestedPriority", "reason", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles and permissions"
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/Project" },
+      "description": "Managed company projects"
+    },
+    "/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/Task" },
+      "description": "Tasks and deliverables"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Immutable system and task audit history"
+    },
+    "/weekly_events/{eventId}": {
+      "schema": { "$ref": "#/entities/WeeklyEvent" },
+      "description": "Weekly calendar events and commitments"
+    },
+    "/daily_checkins/{checkinId}": {
+      "schema": { "$ref": "#/entities/DailyCheckin" },
+      "description": "Daily check-in and checkout records"
+    },
+    "/feedbacks/{feedbackId}": {
+      "schema": { "$ref": "#/entities/Feedback" },
+      "description": "Individual professional development and feedback"
+    },
+    "/priority_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/PriorityRequest" },
+      "description": "Priority change requests awaiting manager approval"
+    }
+  }
+}

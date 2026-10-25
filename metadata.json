@@ -1,0 +1,6 @@
+{
+  "name": "Nodrix Gestão",
+  "description": "Sistema interno de produtividade, projetos e gestão de equipe para pequenas empresas de tecnologia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

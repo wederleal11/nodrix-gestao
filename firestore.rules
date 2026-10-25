@@ -1,0 +1,158 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny all by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Connection testing endpoint
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com');
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.:]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isInitialAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'wederleal11@gmail.com'
+      );
+    }
+
+    function isAdmin() {
+      return isVerified() && (
+        isInitialAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isUserSelf(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isVerified();
+      
+      allow create: if isVerified() && (
+        // Initial admin can bootstrap self or admin can create user
+        (isUserSelf(userId) && (incoming().role == 'collaborator' || (incoming().role == 'admin' && isInitialAdmin()))) ||
+        isAdmin()
+      );
+
+      allow update: if isVerified() && (
+        isAdmin() ||
+        (isUserSelf(userId) &&
+         // Collaborators cannot change their own role or status
+         !incoming().diff(existing()).affectedKeys().hasAny(['role', 'status'])
+        )
+      );
+
+      allow delete: if isAdmin() && !isUserSelf(userId);
+    }
+
+    // Projects collection
+    match /projects/{projectId} {
+      allow read: if isVerified();
+      
+      allow create: if isAdmin() && isValidId(projectId) &&
+        incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 120;
+        
+      allow update: if isVerified() && (
+        isAdmin() ||
+        // Assigned members can update status
+        (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+         existing().memberIds is list && existing().memberIds.hasAny([request.auth.uid]))
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // Tasks collection
+    match /tasks/{taskId} {
+      allow read: if isVerified();
+
+      allow create: if isVerified() && isValidId(taskId) &&
+        incoming().title is string && incoming().title.size() > 0 && incoming().title.size() <= 200 &&
+        incoming().projectId is string && incoming().projectId.size() <= 128;
+
+      allow update: if isVerified() && (
+        isAdmin() ||
+        // Collaborator updating their assigned task: cannot skip validation to completed directly
+        // nor approve their own delivery if not admin
+        (
+          // Cannot approve own delivery without admin rights
+          !(incoming().status == 'completed' && existing().status != 'completed' && existing().assigneeId == request.auth.uid && !isAdmin())
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // Audit logs (Immutable)
+    match /audit_logs/{logId} {
+      allow read: if isVerified();
+      allow create: if isVerified() && isValidId(logId) &&
+        incoming().action is string && incoming().actorId is string;
+      allow update, delete: if false; // Append-only
+    }
+
+    // Weekly events
+    match /weekly_events/{eventId} {
+      allow read: if isVerified();
+      allow create, update: if isVerified() && isValidId(eventId) &&
+        incoming().title is string && incoming().title.size() <= 150;
+      allow delete: if isVerified();
+    }
+
+    // Daily check-ins
+    match /daily_checkins/{checkinId} {
+      allow read: if isVerified();
+      allow create, update: if isVerified() && isValidId(checkinId) &&
+        (incoming().userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Feedbacks (Confidential RBAC - Strictly Admin Only)
+    match /feedbacks/{feedbackId} {
+      // Only Manager/Admin can read, create, update, or delete feedback
+      allow read, create, update, delete: if isVerified() && isAdmin();
+    }
+
+    // Priority change requests
+    match /priority_requests/{requestId} {
+      allow read: if isVerified();
+      allow create: if isVerified() && isValidId(requestId) &&
+        incoming().requesterId == request.auth.uid;
+      allow update: if isAdmin(); // Only manager can approve/reject
+      allow delete: if isAdmin();
+    }
+
+    // System settings
+    match /system_settings/{settingId} {
+      allow read: if isVerified();
+      allow write: if isVerified();
+    }
+  }
+}
