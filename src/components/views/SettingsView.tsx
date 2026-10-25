@@ -21,6 +21,8 @@ import {
   ExternalLink,
   RotateCcw,
   Archive,
+  Download,
+  GitBranch,
 } from 'lucide-react';
 import type { UserProfile, Project, AuditLog } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -997,6 +999,66 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               )}
             </div>
           )}
+          {/* Exportação do Código Fonte & Repositório GitHub */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center shadow-xs">
+                  <GitBranch className="w-5 h-5 text-cyan-400" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-slate-900">Repositório GitHub & Exportação do Código Fonte</h4>
+                  <p className="text-xs text-slate-500">
+                    Repositório oficial: <a href="https://github.com/wederleal11/nodrix-gestao" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-semibold hover:underline">github.com/wederleal11/nodrix-gestao</a>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href="/nodrix-gestao.zip"
+                  download="nodrix-gestao.zip"
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  Baixar Código Completo (.ZIP)
+                </a>
+                <a
+                  href="https://github.com/wederleal11/nodrix-gestao"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 bg-[#004e9a] hover:bg-[#003d7a] text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Abrir no GitHub
+                </a>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-700">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <strong className="text-slate-900 font-bold">Status do Repositório:</strong>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    Criado no GitHub
+                  </span>
+                </div>
+                <p className="text-slate-600 text-[11px] leading-relaxed">
+                  O repositório <strong className="text-slate-800">nodrix-gestao</strong> foi registrado na sua conta do GitHub (<strong className="text-slate-800">wederleal11</strong>).
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-lg space-y-1.5">
+                <strong className="text-blue-900 font-bold block">Como sincronizar via Git:</strong>
+                <p className="text-blue-800 text-[11px] leading-relaxed font-mono bg-white/80 p-1.5 rounded border border-blue-200">
+                  git push -u origin main
+                </p>
+                <p className="text-slate-500 text-[10px]">
+                  Obs: Para push via token fine-grained, certifique-se de habilitar permissão <em>Contents: Read and write</em> no token do GitHub.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
