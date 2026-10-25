@@ -51,6 +51,7 @@ const MainApp: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<WeeklyEvent[]>([]);
   const [priorityRequests, setPriorityRequests] = useState<PriorityRequest[]>([]);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   // Modals state
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -75,17 +76,25 @@ const MainApp: React.FC = () => {
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<UserProfile | null>(null);
 
-  // Live subscriptions when authenticated
+  // Never start protected Firestore listeners until the profile has been validated.
   useEffect(() => {
-    if (!firebaseUser) return;
+    if (!firebaseUser || !profile || profile.status !== 'active') {
+      setDataError(null);
+      return;
+    }
 
-    const unsubProjects = subscribeProjects((data) => setProjects(data));
+    setDataError(null);
+    const onSubscriptionError = (error: { code?: string; message: string }) => {
+      setDataError(`Falha ao sincronizar informações do Firestore (${error.code || 'erro desconhecido'}). Confira as permissões do banco e tente novamente.`);
+    };
+
+    const unsubProjects = subscribeProjects((data) => setProjects(data), onSubscriptionError);
     const unsubTasks = subscribeTasks((data) => {
       setTasks(data);
       setInspectingTask((prev) => (prev ? data.find((t) => t.id === prev.id) || null : null));
-    });
-    const unsubEvents = subscribeWeeklyEvents((data) => setEvents(data));
-    const unsubRequests = subscribePriorityRequests((data) => setPriorityRequests(data));
+    }, onSubscriptionError);
+    const unsubEvents = subscribeWeeklyEvents((data) => setEvents(data), onSubscriptionError);
+    const unsubRequests = subscribePriorityRequests((data) => setPriorityRequests(data), onSubscriptionError);
 
     return () => {
       unsubProjects();
@@ -93,7 +102,7 @@ const MainApp: React.FC = () => {
       unsubEvents();
       unsubRequests();
     };
-  }, [firebaseUser]);
+  }, [firebaseUser, profile?.uid, profile?.status]);
 
   // Loading spinner
   if (loading) {
@@ -214,6 +223,12 @@ const MainApp: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="max-w-[1720px] w-full mx-auto p-4 sm:p-6 lg:p-7 flex-1">
+        {(authError || dataError) && (
+          <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            <span>{dataError || authError}</span>
+            <button type="button" onClick={() => window.location.reload()} className="rounded-md border border-amber-400 px-3 py-1.5 font-semibold hover:bg-amber-100">Tentar novamente</button>
+          </div>
+        )}
         {currentView === 'dashboard' && (
           <DashboardView
             projects={projects}
