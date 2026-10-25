@@ -46,14 +46,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     testConnection();
   }, []);
 
-  // Subscribe to all users so we have current team members list
+  // The Firestore listener must wait for an active profile, not just a Google session.
   useEffect(() => {
-    if (!firebaseUser) return;
-    const unsub = subscribeUsers((users) => {
-      setAllUsers(users);
-    });
+    if (!firebaseUser || !profile || profile.status !== 'active') {
+      setAllUsers([]);
+      return;
+    }
+    const unsub = subscribeUsers(
+      (users) => setAllUsers(users),
+      (error) => {
+        console.error('Failed to load team list:', error.code);
+        setAuthError('Login concluído, mas não foi possível sincronizar a equipe no Firestore.');
+      },
+    );
     return () => unsub();
-  }, [firebaseUser]);
+  }, [firebaseUser, profile?.uid, profile?.status]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -97,12 +104,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setProfile(userProf);
           setActiveUserId(userProf.uid);
 
-          // Seed default projects and tasks if admin
+          // Initial data are optional and must NEVER block a successful Google sign-in.
           if (isInitialAdmin) {
-            await seedInitialNodrixData({
+            void seedInitialNodrixData({
               id: userProf.uid,
               name: userProf.name,
               email: userProf.email,
+            }).catch((error) => {
+              console.error('Initial Nodrix data sync failed:', error);
+              setAuthError('Login concluído; a sincronização dos dados iniciais falhou. Os demais módulos continuam acessíveis.');
             });
           }
         } catch (e) {
