@@ -63,6 +63,19 @@ export async function logAuditEvent(entry: {
   }
 }
 
+// Firestore listeners invoke error handlers asynchronously. Throwing from an
+// onSnapshot error callback can crash the UI after the Google session succeeds.
+type SubscriptionErrorHandler = (error: { code?: string; message: string }) => void;
+
+function reportFirestoreSubscriptionError(
+  path: string,
+  error: { code?: string; message: string },
+  onError?: SubscriptionErrorHandler,
+): void {
+  console.error('Firestore live subscription failed:', { path, code: error.code });
+  onError?.(error);
+}
+
 export function subscribeAuditLogs(
   onUpdate: (logs: AuditLog[]) => void,
   limitCount = 50
@@ -76,7 +89,7 @@ export function subscribeAuditLogs(
       snapshot.forEach((d) => logs.push(d.data() as AuditLog));
       onUpdate(logs.slice(0, limitCount));
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => reportFirestoreSubscriptionError(path, err)
   );
 }
 
@@ -108,7 +121,7 @@ export async function upsertUserProfile(profile: UserProfile): Promise<void> {
   }
 }
 
-export function subscribeUsers(onUpdate: (users: UserProfile[]) => void): Unsubscribe {
+export function subscribeUsers(onUpdate: (users: UserProfile[]) => void, onError?: SubscriptionErrorHandler): Unsubscribe {
   const path = 'users';
   return onSnapshot(
     collection(db, path),
@@ -117,7 +130,7 @@ export function subscribeUsers(onUpdate: (users: UserProfile[]) => void): Unsubs
       snapshot.forEach((d) => users.push(d.data() as UserProfile));
       onUpdate(users);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => reportFirestoreSubscriptionError(path, err, onError)
   );
 }
 
@@ -133,7 +146,7 @@ export async function deleteUser(uid: string): Promise<void> {
 // ==========================================
 // PROJECTS
 // ==========================================
-export function subscribeProjects(onUpdate: (projects: Project[]) => void): Unsubscribe {
+export function subscribeProjects(onUpdate: (projects: Project[]) => void, onError?: SubscriptionErrorHandler): Unsubscribe {
   const path = 'projects';
   return onSnapshot(
     collection(db, path),
@@ -142,7 +155,7 @@ export function subscribeProjects(onUpdate: (projects: Project[]) => void): Unsu
       snapshot.forEach((d) => projects.push(d.data() as Project));
       onUpdate(projects);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => reportFirestoreSubscriptionError(path, err, onError)
   );
 }
 
@@ -220,7 +233,7 @@ export async function deleteProject(
 // ==========================================
 // TASKS
 // ==========================================
-export function subscribeTasks(onUpdate: (tasks: Task[]) => void): Unsubscribe {
+export function subscribeTasks(onUpdate: (tasks: Task[]) => void, onError?: SubscriptionErrorHandler): Unsubscribe {
   const path = 'tasks';
   return onSnapshot(
     collection(db, path),
@@ -229,7 +242,7 @@ export function subscribeTasks(onUpdate: (tasks: Task[]) => void): Unsubscribe {
       snapshot.forEach((d) => tasks.push(d.data() as Task));
       onUpdate(tasks);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => reportFirestoreSubscriptionError(path, err, onError)
   );
 }
 
@@ -491,7 +504,7 @@ export async function deleteTask(
 // ==========================================
 // WEEKLY EVENTS & AGENDA
 // ==========================================
-export function subscribeWeeklyEvents(onUpdate: (events: WeeklyEvent[]) => void): Unsubscribe {
+export function subscribeWeeklyEvents(onUpdate: (events: WeeklyEvent[]) => void, onError?: SubscriptionErrorHandler): Unsubscribe {
   const path = 'weekly_events';
   return onSnapshot(
     collection(db, path),
@@ -500,7 +513,7 @@ export function subscribeWeeklyEvents(onUpdate: (events: WeeklyEvent[]) => void)
       snapshot.forEach((d) => events.push(d.data() as WeeklyEvent));
       onUpdate(events);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => reportFirestoreSubscriptionError(path, err, onError)
   );
 }
 
@@ -538,7 +551,7 @@ export function subscribeDailyCheckins(
       snapshot.forEach((d) => checkins.push(d.data() as DailyCheckin));
       onUpdate(checkins);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => reportFirestoreSubscriptionError(path, err)
   );
 }
 
@@ -575,7 +588,7 @@ export function subscribeFeedbacks(
       snapshot.forEach((d) => items.push(d.data() as Feedback));
       onUpdate(items);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => reportFirestoreSubscriptionError(path, err)
   );
 }
 
@@ -615,7 +628,8 @@ export async function deleteFeedback(feedbackId: string): Promise<void> {
 // PRIORITY CHANGE REQUESTS
 // ==========================================
 export function subscribePriorityRequests(
-  onUpdate: (requests: PriorityRequest[]) => void
+  onUpdate: (requests: PriorityRequest[]) => void,
+  onError?: SubscriptionErrorHandler
 ): Unsubscribe {
   const path = 'priority_requests';
   return onSnapshot(
@@ -625,7 +639,7 @@ export function subscribePriorityRequests(
       snapshot.forEach((d) => items.push(d.data() as PriorityRequest));
       onUpdate(items);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => reportFirestoreSubscriptionError(path, err, onError)
   );
 }
 
