@@ -419,7 +419,7 @@ const MainApp: React.FC = () => {
       <DailyCheckinModal
         isOpen={isDailyCheckinOpen}
         onClose={() => setIsDailyCheckinOpen(false)}
-        userTasks={tasks.filter((t) => t.assigneeId === activeProfile?.uid)}
+        userTasks={tasks.filter((t) => t.assigneeId === profile?.uid)}
         existingCheckin={existingDailyCheckin}
       />
 

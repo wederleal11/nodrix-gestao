@@ -31,7 +31,17 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   onAddTask,
   onAddEvent,
 }) => {
-  const { profile } = useAuth();
+  const { profile, firebaseUser } = useAuth();
+  // Historical team members were seeded with placeholder UIDs. Only link an
+  // alias if its email matches the signed-in Google identity exactly.
+  const myAccountIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!firebaseUser?.uid || !firebaseUser.email) return ids;
+    ids.add(firebaseUser.uid);
+    const email = firebaseUser.email.toLowerCase();
+    users.filter((user) => user.email.toLowerCase() === email).forEach((user) => ids.add(user.uid));
+    return ids;
+  }, [firebaseUser?.uid, firebaseUser?.email, users]);
   const [weekOffset, setWeekOffset] = useState(0);
   const [showWeekend, setShowWeekend] = useState(false);
 
@@ -139,13 +149,13 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
         {displayedDates.map((col) => {
           const dayTasks = tasks.filter((t) => {
             if (t.deadline !== col.dateStr) return false;
-            if (!profile?.uid || t.assigneeId !== profile.uid) return false;
+            if (!profile?.uid || !myAccountIds.has(t.assigneeId || '')) return false;
             return true;
           });
 
           const dayEvents = events.filter((ev) => {
             if (ev.date !== col.dateStr) return false;
-            if (!profile?.uid || !ev.assigneeIds?.includes(profile.uid)) return false;
+            if (!profile?.uid || !ev.assigneeIds?.some((id) => myAccountIds.has(id))) return false;
             return true;
           });
 
