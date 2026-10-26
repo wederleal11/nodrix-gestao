@@ -14,7 +14,8 @@ const TaskImageThumb: React.FC<{
   canRemove: boolean;
   disabled?: boolean;
   onRemove?: (image: TaskImage) => void;
-}> = ({ image, canRemove, disabled, onRemove }) => {
+  compact?: boolean;
+}> = ({ image, canRemove, disabled, onRemove, compact }) => {
   const [src, setSrc] = useState('');
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState(false);
@@ -42,9 +43,9 @@ const TaskImageThumb: React.FC<{
           className="w-full text-left cursor-zoom-in disabled:cursor-default"
         >
           {src ? (
-            <img src={src} alt={image.name} loading="lazy" className="h-24 w-full object-cover" />
+            <img src={src} alt={image.name} loading="lazy" className={`${compact ? 'h-12' : 'h-24'} w-full object-cover`} />
           ) : (
-            <div className="h-24 flex items-center justify-center p-2 text-xs text-slate-500 text-center">
+            <div className={`${compact ? 'h-12' : 'h-24'} flex items-center justify-center p-2 text-xs text-slate-500 text-center`}>
               {error ? 'Imagem indisponível' : <LoaderCircle className="w-4 h-4 animate-spin" />}
             </div>
           )}
@@ -84,7 +85,9 @@ export const TaskImages: React.FC<{
   canRemove?: (image: TaskImage) => boolean;
   disabled?: boolean;
   busy?: boolean;
-}> = ({ images = [], pending = [], onFiles, onRemovePending, onRemoveExisting, canRemove, disabled, busy }) => {
+  compact?: boolean;
+  onViewAll?: () => void;
+}> = ({ images = [], pending = [], onFiles, onRemovePending, onRemoveExisting, canRemove, disabled, busy, compact, onViewAll }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const total = images.length + pending.length;
@@ -94,13 +97,14 @@ export const TaskImages: React.FC<{
   };
 
   return (
-    <section className="space-y-2.5" aria-label="Imagens da demanda">
+    <section className={compact ? 'space-y-1.5' : 'space-y-2.5'} aria-label="Imagens da demanda">
       <div className="flex items-center justify-between gap-3">
         <h4 className="text-xs font-bold text-slate-800 inline-flex items-center gap-1.5">
           <Paperclip className="w-4 h-4 text-blue-600" />
           Imagens ({total}/{MAX_TASK_IMAGES})
         </h4>
         {busy && <span role="status" className="text-xs text-blue-700 flex items-center gap-1"><LoaderCircle className="w-3.5 h-3.5 animate-spin" /> Enviando imagens...</span>}
+        {compact && onViewAll && <button type="button" onClick={onViewAll} className="text-[11px] font-bold text-blue-700 whitespace-nowrap">Ver imagens</button>}
       </div>
       {onFiles && (
         <div
@@ -108,7 +112,7 @@ export const TaskImages: React.FC<{
           onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
           onDragLeave={(e) => { e.preventDefault(); if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false); }}
           onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); setDragging(false); pick(e.dataTransfer.files); } }}
-          className={`rounded-lg border-2 border-dashed px-4 py-4 text-center transition-colors ${dragging ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-slate-50'}`}
+          className={`rounded-lg border border-dashed text-center transition-colors ${compact ? 'px-3 py-2' : 'px-4 py-4'} ${dragging ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-slate-50'}`}
         >
           <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple
             disabled={disabled || total >= MAX_TASK_IMAGES} className="sr-only"
@@ -117,18 +121,20 @@ export const TaskImages: React.FC<{
             className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-900 disabled:opacity-50 cursor-pointer">
             <ImagePlus className="w-4 h-4" /> Escolher imagens
           </button>
-          <p className="mt-1 text-[11px] text-slate-500">Ctrl+V para colar • arraste aqui • JPG, PNG, WebP ou GIF • até 6 MB</p>
+          <p className="mt-1 text-[10px] text-slate-500">{compact ? 'Ctrl+V · arraste ou escolha uma imagem' : 'Ctrl+V para colar • arraste aqui • JPG, PNG, WebP ou GIF • até 6 MB'}</p>
         </div>
       )}
       {(images.length > 0 || pending.length > 0) && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {images.map((image) => (
-            <TaskImageThumb key={image.id} image={image} disabled={disabled}
+        <div className={compact ? 'grid grid-cols-4 gap-1.5' : 'grid grid-cols-2 sm:grid-cols-4 gap-2'}>
+          {(compact ? images.slice(0, 3) : images).map((image) => (
+            <TaskImageThumb key={image.id} image={image} compact={compact} disabled={disabled}
               canRemove={Boolean(canRemove?.(image))} onRemove={onRemoveExisting} />
           ))}
-          {pending.map((item) => (
+          {compact && images.length > 3 && <button type="button" onClick={onViewAll}
+            className="rounded-lg bg-slate-100 text-blue-700 text-[11px] font-bold">+{images.length - 3} imagens</button>}
+          {(compact ? pending.slice(0, 1) : pending).map((item) => (
             <div key={item.id} className="relative bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
-              <img src={item.previewUrl} alt={item.file.name} className="h-24 w-full object-cover" />
+              <img src={item.previewUrl} alt={item.file.name} className={`${compact ? 'h-12' : 'h-24'} w-full object-cover`} />
               <span className="block p-1.5 truncate text-[10px] text-slate-700">{item.file.name}</span>
               {onRemovePending && (
                 <button type="button" disabled={disabled} onClick={() => onRemovePending(item.id)}
