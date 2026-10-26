@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, Expand, X } from 'lucide-react';
 import type { ChecklistItem } from '../../types';
 
@@ -13,6 +14,13 @@ export const TaskChecklistPanel: React.FC<Props> = ({ items, onToggle, disabled,
   const [expanded, setExpanded] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const completed = items.filter((item) => item.done).length;
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setExpanded(false); };
+    document.addEventListener('keydown', onEscape);
+    return () => document.removeEventListener('keydown', onEscape);
+  }, [expanded]);
 
   const toggle = async (id: string) => {
     if (pendingId || disabled) return;
@@ -57,7 +65,7 @@ export const TaskChecklistPanel: React.FC<Props> = ({ items, onToggle, disabled,
       {error && <p role="alert" className="text-[11px] text-rose-700 mb-1">{error}</p>}
       {checklist(false)}
     </section>
-    {expanded && <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 bg-black/70" role="presentation">
+    {expanded && createPortal(<div className="fixed inset-0 z-[90] flex items-center justify-center p-3 bg-black/70" role="presentation">
       <section role="dialog" aria-modal="true" aria-label="Checklist completo"
         className="flex flex-col w-full max-w-2xl max-h-[88dvh] bg-white rounded-xl shadow-2xl overflow-hidden">
         <header className="bg-[#0e213e] text-white px-5 py-4 flex items-center justify-between shrink-0">
@@ -74,6 +82,6 @@ export const TaskChecklistPanel: React.FC<Props> = ({ items, onToggle, disabled,
             className="rounded-lg bg-[#004e9a] px-4 py-2 text-xs font-bold text-white">Voltar à demanda</button>
         </footer>
       </section>
-    </div>}
+    </div>, document.body)}
   </>;
 };

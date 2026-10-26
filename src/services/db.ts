@@ -453,7 +453,7 @@ export async function toggleTaskChecklistItem(taskId: string, itemId: string): P
       const taskRef = doc(db, 'tasks', taskId);
       const snap = await transaction.get(taskRef);
       if (!snap.exists()) throw new Error('Demanda não encontrada. Atualize a tela.');
-      const items: Task['checklist'] = snap.data().checklist || [];
+      const items: NonNullable<Task['checklist']> = snap.data().checklist || [];
       if (!items.some((item) => item.id === itemId)) throw new Error('Item de checklist não encontrado.');
       transaction.update(taskRef, {
         checklist: items.map((item) => item.id === itemId ? { ...item, done: !item.done } : item),
