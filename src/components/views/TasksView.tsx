@@ -31,6 +31,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { KanbanColumnModal } from '../modals/KanbanColumnModal';
 import { TaskAvatar, ProjectPill } from '../tasks/TaskIdentity';
+import { TaskBulkImportModal } from '../modals/TaskBulkImportModal';
 
 interface TasksViewProps {
   tasks: Task[];
@@ -50,6 +51,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
   const { activeProfile, isAdmin } = useAuth();
 
   const [columnPages, setColumnPages] = useState<Record<string,number>>({});
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [projectFilter, setProjectFilter] = useState('all');
   const [assigneeFilter, setAssigneeFilter] = useState('all');
@@ -280,6 +282,10 @@ export const TasksView: React.FC<TasksViewProps> = ({
             <span>+ Coluna</span>
           </button>
 
+          {isAdmin && <button type="button" onClick={() => setShowBulkImport(true)}
+            className="px-3 py-1.5 rounded-md border border-blue-200 bg-white text-blue-700 font-bold text-xs hover:bg-blue-50">
+            Importar CSV / JSON
+          </button>}
           {/* Button to Add Task */}
           <button
             onClick={onAddTask}
@@ -441,6 +447,8 @@ export const TasksView: React.FC<TasksViewProps> = ({
         </div>
       </div>
 
+      {showBulkImport && <TaskBulkImportModal
+        projects={projects} users={users} tasks={tasks} onClose={() => setShowBulkImport(false)} />}
       {/* KANBAN COLUMN CREATE / EDIT MODAL */}
       <KanbanColumnModal
         isOpen={isColumnModalOpen}
