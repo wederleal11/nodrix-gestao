@@ -113,8 +113,10 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 export async function upsertUserProfile(profile: UserProfile): Promise<void> {
   const path = `users/${profile.uid}`;
   try {
+    // Remove undefined properties; Firestore rejects them even on a merge.
+    const payload = Object.fromEntries(Object.entries(profile).filter(([, value]) => value !== undefined));
     await setDoc(doc(db, 'users', profile.uid), {
-      ...profile,
+      ...payload,
       updatedAt: new Date().toISOString(),
     }, { merge: true });
   } catch (error) {
@@ -161,7 +163,7 @@ export function formatProjectWriteError(error: unknown): string {
     // Native Firebase errors are already plain text.
   }
   if (/permission-denied|missing or insufficient permissions/i.test(detail)) {
-    return 'Sua conta não tem permissão para fazer esta alteração. Entre com um perfil gestor ou verifique sua participação no projeto.';
+    return 'O Firestore recusou esta ação. Entre com uma conta gestora e confirme a publicação das regras de autorização do banco.';
   }
   if (/unavailable|offline|network|deadline-exceeded/i.test(detail)) {
     return 'Não foi possível acessar o banco agora. Verifique sua conexão e tente novamente; a alteração não foi confirmada.';

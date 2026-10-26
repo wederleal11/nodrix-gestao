@@ -147,17 +147,19 @@ const MainApp: React.FC = () => {
     );
   }
 
-  // User pending approval
-  if (profile?.status === 'pending') {
+  // Pending and inactive profiles cannot access operational screens.
+  if (profile.status !== 'active') {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-200 flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-4 text-center">
           <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-xl font-bold">
             !
           </div>
-          <h2 className="text-lg font-bold text-white">Aguardando Autorização</h2>
+          <h2 className="text-lg font-bold text-white">{profile.status === 'inactive' ? 'Acesso desativado' : 'Aguardando autorização'}</h2>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Seu cadastro com o e-mail <strong>{profile.email}</strong> foi registrado e está aguardando aprovação pelo gestor do Nodrix Gestão.
+            {profile.status === 'inactive'
+              ? <>O acesso da conta <strong>{profile.email}</strong> está desativado. Solicite reativação ao gestor.</>
+              : <>O cadastro <strong>{profile.email}</strong> está aguardando aprovação pelo gestor do Nodrix Gestão.</>}
           </p>
         </div>
       </div>
@@ -385,12 +387,15 @@ const MainApp: React.FC = () => {
         users={allUsers}
       />
 
-      <ProjectModal
-        isOpen={isProjectModalOpen}
-        onClose={() => setIsProjectModalOpen(false)}
-        users={allUsers}
-        initialProject={editingProject}
-      />
+      {isProjectModalOpen && (
+        <ProjectModal
+          key={editingProject?.id || 'new-project'}
+          isOpen
+          onClose={() => { setIsProjectModalOpen(false); setEditingProject(null); }}
+          users={allUsers}
+          initialProject={editingProject}
+        />
+      )}
 
       <ProjectDetailModal
         project={inspectingProject}
@@ -433,11 +438,14 @@ const MainApp: React.FC = () => {
         initialDate={eventModalDate}
       />
 
-      <MemberModal
-        isOpen={isMemberModalOpen}
-        onClose={() => setIsMemberModalOpen(false)}
-        initialMember={editingMember}
-      />
+      {isMemberModalOpen && (
+        <MemberModal
+          key={editingMember?.uid || 'new-user'}
+          isOpen
+          onClose={() => { setIsMemberModalOpen(false); setEditingMember(null); }}
+          initialMember={editingMember}
+        />
+      )}
     </div>
   );
 };

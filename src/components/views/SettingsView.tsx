@@ -131,7 +131,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleToggleUserStatus = async (user: UserProfile) => {
     if (!isAdmin) return;
-    if (user.isSuperAdmin || (user.email.toLowerCase() === 'wederleal11@gmail.com')) {
+    if (user.isSuperAdmin || ['wederleal11@gmail.com', 'weder.leal@nodrix.com.br'].includes(user.email.toLowerCase())) {
       alert('Não é permitido desativar o Super Admin.');
       return;
     }
@@ -160,7 +160,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleDeleteUser = async (user: UserProfile) => {
     if (!isAdmin) return;
-    if (user.isSuperAdmin || (user.email.toLowerCase() === 'wederleal11@gmail.com')) {
+    if (user.isSuperAdmin || ['wederleal11@gmail.com', 'weder.leal@nodrix.com.br'].includes(user.email.toLowerCase())) {
       alert('Por segurança, o Super Admin não pode ser excluído.');
       return;
     }
@@ -434,7 +434,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <tbody className="divide-y divide-slate-100">
                       {filteredUsers.map((user) => {
                         const isSelf = profile?.uid === user.uid;
-                        const isUserSuperAdmin = user.isSuperAdmin || user.email.toLowerCase() === 'wederleal11@gmail.com';
+                        const isUserSuperAdmin = user.isSuperAdmin || ['wederleal11@gmail.com', 'weder.leal@nodrix.com.br'].includes(user.email.toLowerCase());
                         const isUserAdmin = user.role === 'admin' || isUserSuperAdmin;
 
                         return (

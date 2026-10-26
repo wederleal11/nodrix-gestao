@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, ChevronDown, ChevronRight } from 'lucide-react';
 import type { UserProfile, UserRole, UserStatus } from '../../types';
-import { upsertUserProfile } from '../../services/db';
+import { formatProjectWriteError, upsertUserProfile } from '../../services/db';
+import { useAuth } from '../../context/AuthContext';
 import { maskPhone, maskCpfCnpj } from '../../utils/masks';
 
 interface MemberModalProps {
@@ -15,6 +16,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
   onClose,
   initialMember,
 }) => {
+  const { profile, isAdmin } = useAuth();
   const [name, setName] = useState(initialMember?.name || '');
   const [phone, setPhone] = useState(initialMember?.phone || '');
   const [email, setEmail] = useState(initialMember?.email || '');
@@ -27,6 +29,22 @@ export const MemberModal: React.FC<MemberModalProps> = ({
   const [showNotes, setShowNotes] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setName(initialMember?.name || '');
+    setPhone(initialMember?.phone || '');
+    setEmail(initialMember?.email || '');
+    setDocument(initialMember?.document || '');
+    setRole(initialMember?.role || 'collaborator');
+    setTitle(initialMember?.title || 'Desenvolvedor');
+    setAvailability(initialMember?.availability || '40h semanais');
+    setStatus(initialMember?.status || 'active');
+    setNotes(initialMember?.notes || '');
+    setShowNotes(false);
+    setErrorMessage('');
+    setIsSubmitting(false);
+  }, [isOpen, initialMember]);
 
   if (!isOpen) return null;
 
@@ -51,18 +69,23 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       return;
     }
 
-    const memberId = initialMember?.uid || `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    if (!isAdmin || !profile) {
+      setErrorMessage('Somente gestores autorizados podem cadastrar e editar usuários.');
+      return;
+    }
+    const memberId = initialMember?.uid || `user_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 
     const memberData: UserProfile = {
+      ...(initialMember || {}),
       uid: memberId,
       name: name.trim(),
       email: email.trim().toLowerCase(),
       role,
       title: title.trim(),
       availability: availability.trim(),
-      phone: phone.trim() || undefined,
-      document: document.trim() || undefined,
-      notes: notes.trim() || undefined,
+      phone: phone.trim(),
+      document: document.trim(),
+      notes: notes.trim(),
       status,
       createdAt: initialMember?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -73,7 +96,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
       await upsertUserProfile(memberData);
       onClose();
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Falha ao salvar membro da equipe.');
+      setErrorMessage(formatProjectWriteError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -146,6 +169,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
               <input
                 type="email"
                 value={email}
+                disabled={Boolean(initialMember)}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="contato@nodrix.com.br"
                 className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs placeholder:text-slate-400 focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white"

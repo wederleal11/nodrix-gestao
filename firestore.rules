@@ -33,10 +33,11 @@ service cloud.firestore {
       return resource.data;
     }
 
+    // Fixed owner allowlist; checked against verified Google auth token, never a profile field.
     function isInitialAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'wederleal11@gmail.com'
-      );
+      return isVerified() &&
+        request.auth.token.firebase.sign_in_provider == 'google.com' &&
+        request.auth.token.email in ['wederleal11@gmail.com', 'weder.leal@nodrix.com.br'];
     }
 
     function isAdmin() {

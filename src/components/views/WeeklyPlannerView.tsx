@@ -31,9 +31,8 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   onAddTask,
   onAddEvent,
 }) => {
-  const { activeProfile } = useAuth();
+  const { profile } = useAuth();
   const [weekOffset, setWeekOffset] = useState(0);
-  const [selectedUserFilter, setSelectedUserFilter] = useState<string>('all');
   const [showWeekend, setShowWeekend] = useState(false);
 
   // Calculate Monday date of the target week in SP timezone
@@ -105,16 +104,9 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
 
         {/* Right: User selector, weekend toggle and actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={selectedUserFilter}
-            onChange={(e) => setSelectedUserFilter(e.target.value)}
-            className="px-3 py-1.5 border border-slate-300 rounded-md bg-white text-slate-700 text-xs cursor-pointer"
-          >
-            <option value="all">Equipe: Todos</option>
-            {users.map((u) => (
-              <option key={u.uid} value={u.uid}>{u.name}</option>
-            ))}
-          </select>
+          <span className="px-3 py-1.5 border border-blue-200 bg-blue-50 rounded-md text-blue-800 font-semibold">
+            Minha agenda: {profile?.name || 'Minha conta'}
+          </span>
 
           <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 text-xs">
             <input
@@ -147,13 +139,13 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
         {displayedDates.map((col) => {
           const dayTasks = tasks.filter((t) => {
             if (t.deadline !== col.dateStr) return false;
-            if (selectedUserFilter !== 'all' && t.assigneeId !== selectedUserFilter) return false;
+            if (!profile?.uid || t.assigneeId !== profile.uid) return false;
             return true;
           });
 
           const dayEvents = events.filter((ev) => {
             if (ev.date !== col.dateStr) return false;
-            if (selectedUserFilter !== 'all' && !ev.assigneeIds.includes(selectedUserFilter)) return false;
+            if (!profile?.uid || !ev.assigneeIds?.includes(profile.uid)) return false;
             return true;
           });
 

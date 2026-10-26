@@ -72,6 +72,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const email = user.email || '';
           const isInitialAdmin = email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase();
+          const isCorporateOwner = email.toLowerCase() === 'weder.leal@nodrix.com.br' &&
+            user.providerData.some((provider) => provider.providerId === 'google.com' && provider.email?.toLowerCase() === email.toLowerCase());
 
           let userProf = await getUserProfile(user.uid);
 
@@ -85,20 +87,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               uid: user.uid,
               name: user.displayName || (isInitialAdmin ? 'Weder Leal' : email.split('@')[0]),
               email,
-              role: isInitialAdmin ? 'admin' : (matchedPreseeded?.role || 'collaborator'),
-              isSuperAdmin: isInitialAdmin,
+              role: (isInitialAdmin || isCorporateOwner) ? 'admin' : 'collaborator',
+              isSuperAdmin: isInitialAdmin || isCorporateOwner,
               title: isInitialAdmin ? 'Super Admin & Gestor' : (matchedPreseeded?.title || 'Desenvolvedor'),
               availability: matchedPreseeded?.availability || '40h semanais',
-              avatarUrl: user.photoURL || undefined,
-              status: isInitialAdmin ? 'active' : (matchedPreseeded ? 'active' : 'active'),
+              avatarUrl: user.photoURL || '',
+              status: (isInitialAdmin || isCorporateOwner) ? 'active' : (matchedPreseeded?.status || 'pending'),
               createdAt: new Date().toISOString(),
             };
             await upsertUserProfile(userProf);
-          } else if (isInitialAdmin && (!userProf.isSuperAdmin || userProf.role !== 'admin')) {
-            userProf.role = 'admin';
-            userProf.isSuperAdmin = true;
-            userProf.status = 'active';
-            await upsertUserProfile(userProf);
+          } else if ((isInitialAdmin || isCorporateOwner) && (!userProf.isSuperAdmin || userProf.role !== 'admin')) {
+            // Firestore rules must be deployed separately from the Vercel frontend.
+            const promoted = { ...userProf, role: 'admin' as const, isSuperAdmin: true, status: 'active' as const };
+            try {
+              await upsertUserProfile(promoted);
+              userProf = promoted;
+            } catch (error) {
+              console.warn('Owner access requires the matching deployed Firestore rules.', error);
+              setAuthError('A conta proprietária foi reconhecida, mas o Firestore ainda precisa receber as regras de autorização.');
+            }
           }
 
           setProfile(userProf);
@@ -144,15 +151,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isSuperAdmin = useMemo(() => {
     // Perspective selection changes dashboards, never the signed-in user's permissions.
     if (!profile) return false;
-    return (
-      profile.email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase() ||
-      profile.isSuperAdmin === true
+    const signedInEmail = firebaseUser?.email?.toLowerCase();
+    const verifiedGoogle = firebaseUser?.providerData.some(
+      (provider) => provider.providerId === 'google.com' && provider.email?.toLowerCase() === signedInEmail
     );
-  }, [profile]);
+    return profile.status === 'active' && Boolean(verifiedGoogle) && (
+      signedInEmail === INITIAL_ADMIN_EMAIL.toLowerCase() ||
+      signedInEmail === 'weder.leal@nodrix.com.br'
+    );
+  }, [profile, firebaseUser]);
 
   const isAdmin = useMemo(() => {
     if (!profile) return false;
-    return profile.role === 'admin' || isSuperAdmin;
+    return profile.status === 'active' && (profile.role === 'admin' || isSuperAdmin);
   }, [profile, isSuperAdmin]);
 
   const signInWithGoogle = async () => {
