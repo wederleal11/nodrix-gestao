@@ -52,7 +52,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onAddProject,
   onEditProject,
 }) => {
-  const { activeProfile, isAdmin, isSuperAdmin } = useAuth();
+  const { profile, isAdmin, isSuperAdmin } = useAuth();
 
   // Primary settings navigation tabs: Usuarios | Cadastros | Auditoria | Geral
   const [activeSettingsTab, setActiveSettingsTab] = useState<
@@ -185,9 +185,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       p.name,
       !p.isArchived,
       {
-        id: activeProfile?.uid || '',
-        name: activeProfile?.name || '',
-        email: activeProfile?.email || '',
+        id: profile?.uid || '',
+        name: profile?.name || '',
+        email: profile?.email || '',
       }
     );
   };
@@ -198,9 +198,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       setSeedStatus('Carregando templates padrão...');
       await seedInitialNodrixData({
-        id: activeProfile?.uid || '',
-        name: activeProfile?.name || 'Weder Leal',
-        email: activeProfile?.email || 'wederleal11@gmail.com',
+        id: profile?.uid || '',
+        name: profile?.name || 'Weder Leal',
+        email: profile?.email || 'wederleal11@gmail.com',
       });
       setSeedStatus('Templates recarregados com sucesso!');
       setTimeout(() => setSeedStatus(''), 4000);
@@ -433,7 +433,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredUsers.map((user) => {
-                        const isSelf = activeProfile?.uid === user.uid;
+                        const isSelf = profile?.uid === user.uid;
                         const isUserSuperAdmin = user.isSuperAdmin || user.email.toLowerCase() === 'wederleal11@gmail.com';
                         const isUserAdmin = user.role === 'admin' || isUserSuperAdmin;
 

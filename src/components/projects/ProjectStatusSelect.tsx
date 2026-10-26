@@ -60,7 +60,7 @@ export const ProjectStatusSelect: React.FC<{ project: Project }> = ({ project })
         onChange={handleChange}
         className={`${badgeClass} max-w-36 cursor-pointer border-0 outline-offset-2 disabled:opacity-60`}
       >
-        {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+        {statuses.map((status) => <option key={status} value={status} className="bg-white text-slate-900">{status}</option>)}
       </select>
       {error && <span role="alert" className="max-w-64 text-[11px] font-medium text-rose-700">{error}</span>}
     </div>

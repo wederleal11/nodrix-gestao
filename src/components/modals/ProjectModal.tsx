@@ -65,6 +65,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setErrorMessage('O nome do projeto é obrigatório.');
       return;
     }
+    if (name.trim().length > 120) {
+      setErrorMessage('O nome do projeto deve ter no máximo 120 caracteres.');
+      return;
+    }
 
     if (!profile || !isAdmin) {
       setErrorMessage('A criação e a edição completa de projetos exigem perfil gestor.');
@@ -157,6 +161,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Nolasco"
+                maxLength={120}
                 className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs placeholder:text-slate-400 focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white"
                 required
               />
