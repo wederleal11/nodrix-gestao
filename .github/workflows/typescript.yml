@@ -20,6 +20,8 @@ jobs:
         run: npm install --no-audit --no-fund --legacy-peer-deps
       - name: Test project links
         run: npx tsx --test src/utils/projectLinks.test.ts src/components/tasks/TaskTextDetails.test.tsx
+      - name: Test JSON and CSV task import
+        run: npx tsx --test src/services/taskImport.test.ts
       - name: Check TypeScript
         run: npm run lint
       - name: Build client
