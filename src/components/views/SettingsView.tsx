@@ -35,6 +35,7 @@ import {
   seedInitialNodrixData,
 } from '../../services/db';
 import { formatDateBR, formatDateTimeBR } from '../../utils/formatters';
+import { ProjectDeleteDialog } from '../projects/ProjectDeleteDialog';
 
 interface SettingsViewProps {
   users: UserProfile[];
@@ -71,6 +72,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Filters for projects in Cadastros
   const [projectSearch, setProjectSearch] = useState('');
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 
   // Audit logs state
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -831,6 +833,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             >
                               {p.isArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => setProjectToDelete(p)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 cursor-pointer transition-colors"
+                              title="Excluir projeto definitivamente"
+                              aria-label={`Excluir projeto ${p.name}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </td>
                       )}
@@ -1061,6 +1072,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {projectToDelete && (
+        <ProjectDeleteDialog
+          key={projectToDelete.id}
+          project={projectToDelete}
+          onClose={() => setProjectToDelete(null)}
+          onDeleted={() => setProjectToDelete(null)}
+        />
       )}
     </div>
   );

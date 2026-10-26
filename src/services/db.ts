@@ -6,6 +6,9 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  getCountFromServer,
+  getDocFromServer,
+  writeBatch,
   query,
   where,
   orderBy,
@@ -290,23 +293,87 @@ export async function toggleArchiveProject(
   }
 }
 
+/**
+ * Permanent project deletion is deliberately allowed only for empty projects.
+ * Neither a project deletion nor Firestore document cascades remove global tasks
+ * and weekly events automatically. Check both collections on the server.
+ */
+export interface ProjectDeletionDependencies {
+  tasks: number;
+  events: number;
+}
+
+export class ProjectDeletionBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ProjectDeletionBlockedError';
+  }
+}
+
+export function projectDeletionBlockedMessage({ tasks, events }: ProjectDeletionDependencies): string | null {
+  if (tasks === 0 && events === 0) return null;
+  const parts = [
+    ...(tasks > 0 ? [`${tasks} demanda${tasks === 1 ? '' : 's'}`] : []),
+    ...(events > 0 ? [`${events} compromisso${events === 1 ? '' : 's'} na agenda`] : []),
+  ];
+  return `Exclusão bloqueada: este projeto possui ${parts.join(' e ')}. Remova ou transfira esses registros antes de excluir o projeto.`;
+}
+
+export async function inspectProjectDeletion(projectId: string): Promise<ProjectDeletionDependencies> {
+  const path = `projects/${projectId}`;
+  try {
+    const [project, taskCount, eventCount] = await Promise.all([
+      getDocFromServer(doc(db, 'projects', projectId)),
+      getCountFromServer(query(collection(db, 'tasks'), where('projectId', '==', projectId))),
+      getCountFromServer(query(collection(db, 'weekly_events'), where('projectId', '==', projectId))),
+    ]);
+    if (!project.exists()) {
+      throw new ProjectDeletionBlockedError('Este projeto não existe mais. Atualize a lista.');
+    }
+    return {
+      tasks: taskCount.data().count,
+      events: eventCount.data().count,
+    };
+  } catch (error) {
+    if (error instanceof ProjectDeletionBlockedError) throw error;
+    handleFirestoreError(error, OperationType.GET, path);
+  }
+}
+
 export async function deleteProject(
   projectId: string,
   projectName: string,
   actor: { id: string; name: string; email: string }
 ): Promise<void> {
   const path = `projects/${projectId}`;
+  if (!actor.id) throw new ProjectDeletionBlockedError('Sessão expirada. Entre novamente antes de excluir.');
   try {
-    await deleteDoc(doc(db, 'projects', projectId));
-    await logAuditEvent({
+    // Recheck server-side data immediately before committing, not only when
+    // the user opened the confirmation dialog.
+    const dependencies = await inspectProjectDeletion(projectId);
+    const blockedMessage = projectDeletionBlockedMessage(dependencies);
+    if (blockedMessage) throw new ProjectDeletionBlockedError(blockedMessage);
+
+    // One atomic Firestore write: deletion and immutable audit receipt.
+    // Audits deliberately survive project deletion.
+    const auditRef = doc(collection(db, 'audit_logs'));
+    const audit: AuditLog = {
+      id: auditRef.id,
       action: 'Exclusão de Projeto',
       actorId: actor.id,
       actorName: actor.name,
       actorEmail: actor.email,
       projectId,
-      details: `Excluiu o projeto "${projectName}"`,
-    });
+      taskId: '',
+      details: `Excluiu definitivamente o projeto "${projectName}" (sem demandas ou compromissos vinculados)`,
+      timestamp: new Date().toISOString(),
+    };
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'projects', projectId));
+    batch.set(auditRef, audit);
+    await batch.commit();
   } catch (error) {
+    if (error instanceof ProjectDeletionBlockedError) throw error;
     handleFirestoreError(error, OperationType.DELETE, path);
   }
 }

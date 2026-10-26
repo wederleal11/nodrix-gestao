@@ -5,10 +5,12 @@ import {
   Edit2,
   Archive,
   RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import type { Project, Task, UserProfile } from '../../types';
 import { formatProjectWriteError, toggleArchiveProject } from '../../services/db';
 import { ProjectStatusSelect } from '../projects/ProjectStatusSelect';
+import { ProjectDeleteDialog } from '../projects/ProjectDeleteDialog';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateBR } from '../../utils/formatters';
 
@@ -34,6 +36,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   const { profile, isAdmin } = useAuth();
   const [archiveError, setArchiveError] = useState('');
   const [isArchiving, setIsArchiving] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   if (!project) return null;
 
@@ -114,6 +117,16 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                   title={project.isArchived ? 'Reativar' : 'Arquivar'}
                 >
                   {project.isArchived ? <RotateCcw className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteDialog(true)}
+                  disabled={isArchiving}
+                  className="p-1.5 text-slate-300 hover:text-rose-400 rounded hover:bg-slate-800 cursor-pointer transition-colors disabled:opacity-50"
+                  title="Excluir definitivamente"
+                  aria-label={`Excluir projeto ${project.name}`}
+                >
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </>
             )}
@@ -240,6 +253,17 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
           </div>
         </div>
       </div>
+      {showDeleteDialog && (
+        <ProjectDeleteDialog
+          key={project.id}
+          project={project}
+          onClose={() => setShowDeleteDialog(false)}
+          onDeleted={() => {
+            setShowDeleteDialog(false);
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 };
