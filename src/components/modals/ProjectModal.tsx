@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { X, ChevronDown, ChevronRight } from 'lucide-react';
-import type { Project, ProjectStatus, PriorityLevel, UserProfile } from '../../types';
+import { X, ChevronDown, ChevronRight, ExternalLink, Link2 } from 'lucide-react';
+import type { Project, ProjectStatus, PriorityLevel, UserProfile, Task } from '../../types';
+import { initialProjectMainLink, normalizeProjectLinkUrl } from '../../utils/projectLinks';
 import { createProjectId, formatProjectWriteError, saveProject } from '../../services/db';
 import { useAuth } from '../../context/AuthContext';
 
@@ -8,6 +9,7 @@ interface ProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   users: UserProfile[];
+  tasks: Task[];
   initialProject?: Project | null;
 }
 
@@ -15,6 +17,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   isOpen,
   onClose,
   users,
+  tasks,
   initialProject,
 }) => {
   const { profile, isAdmin } = useAuth();
@@ -31,6 +34,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [completionCriteria, setCompletionCriteria] = useState(initialProject?.completionCriteria || '');
   const [repoUrl, setRepoUrl] = useState(initialProject?.repoUrl || '');
   const [docsUrl, setDocsUrl] = useState(initialProject?.docsUrl || '');
+  const [mainLinkTitle, setMainLinkTitle] = useState(() => initialProjectMainLink(initialProject, tasks).link?.title || '');
+  const [mainLinkUrl, setMainLinkUrl] = useState(() => initialProjectMainLink(initialProject, tasks).link?.url || '');
+  const [legacyLinkTitle, setLegacyLinkTitle] = useState(() => initialProjectMainLink(initialProject, tasks).legacyTitle);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,6 +56,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     setCompletionCriteria(initialProject?.completionCriteria || '');
     setRepoUrl(initialProject?.repoUrl || '');
     setDocsUrl(initialProject?.docsUrl || '');
+    const currentLink = initialProjectMainLink(initialProject, tasks);
+    setMainLinkTitle(currentLink.link?.title || '');
+    setMainLinkUrl(currentLink.link?.url || '');
+    setLegacyLinkTitle(currentLink.legacyTitle);
     setShowAdvanced(false);
     setErrorMessage('');
     setIsSubmitting(false);
@@ -75,6 +85,27 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       return;
     }
 
+    let primaryLink: Project['primaryLink'] = null;
+    if (mainLinkTitle.trim() || mainLinkUrl.trim()) {
+      if (!mainLinkUrl.trim()) {
+        setErrorMessage('Informe a URL do link principal do projeto ou limpe os dois campos para removê-lo.');
+        return;
+      }
+      if (mainLinkTitle.trim().length > 60) {
+        setErrorMessage('O título do link deve ter até 60 caracteres.');
+        return;
+      }
+      try {
+        primaryLink = {
+          title: mainLinkTitle.trim() || 'Abrir projeto',
+          url: normalizeProjectLinkUrl(mainLinkUrl),
+        };
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : 'URL do projeto inválida.');
+        return;
+      }
+    }
+
     const selectedLeadId = leadId || profile.uid;
     const leadUser = users.find((u) => u.uid === selectedLeadId);
     const projectId = initialProject?.id || createProjectId();
@@ -95,6 +126,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       completionCriteria: completionCriteria.trim(),
       repoUrl: repoUrl.trim(),
       docsUrl: docsUrl.trim(),
+      primaryLink,
+      primaryLinkLegacyTitle: legacyLinkTitle,
       isArchived: initialProject?.isArchived || false,
       createdById: initialProject?.createdById || profile.uid,
       createdAt: initialProject?.createdAt || new Date().toISOString(),
@@ -287,6 +320,34 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               placeholder="Ex: Conciliação de publicações com Legal One validada"
               className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs placeholder:text-slate-400 focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white"
             />
+          </div>
+
+          {/* Main project reference is managed here, never copied into every task. */}
+          <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/40 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="main-project-url" className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                <Link2 className="h-4 w-4 text-blue-600" /> Link principal do projeto
+              </label>
+              {/^https?:\/\//i.test(mainLinkUrl) && <a href={mainLinkUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:underline">
+                Abrir link <ExternalLink className="h-3 w-3" />
+              </a>}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[0.38fr_0.62fr] gap-2">
+              <div>
+                <label htmlFor="main-project-title" className="mb-1 block text-[11px] font-medium text-slate-600">Nome do botão</label>
+                <input id="main-project-title" type="text" maxLength={60} value={mainLinkTitle}
+                  onChange={(e) => setMainLinkTitle(e.target.value)} placeholder="Ex: Painel Nolasco"
+                  className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:outline-none focus:border-blue-600" />
+              </div>
+              <div>
+                <label htmlFor="main-project-url" className="mb-1 block text-[11px] font-medium text-slate-600">Endereço (URL)</label>
+                <input id="main-project-url" type="text" inputMode="url" value={mainLinkUrl}
+                  onChange={(e) => setMainLinkUrl(e.target.value)} placeholder="https://painel.exemplo.com.br"
+                  className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:outline-none focus:border-blue-600" />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500">Aparece automaticamente no cabeçalho de todas as demandas deste projeto. Para remover, limpe os dois campos e salve.</p>
           </div>
 
           {/* Collapsible Section: Critérios e Repos (Print 2 style) */}

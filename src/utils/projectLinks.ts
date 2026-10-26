@@ -32,7 +32,7 @@ export function initialProjectMainLink(project: Project | null | undefined, task
   legacyTitle: string;
 } {
   if (!project) return { link: null, legacyTitle: '' };
-  if (project.primaryLink) return {
+  if (project.primaryLink !== undefined) return {
     link: project.primaryLink,
     legacyTitle: project.primaryLinkLegacyTitle || '',
   };
@@ -54,8 +54,10 @@ export function effectiveTaskLinks(task: Task, project?: Project): TaskLink[] {
   const legacyTitle = (project?.primaryLinkLegacyTitle || '').trim().toLowerCase();
   const taskLinks = (task.links || []).filter((link) => {
     if (!isSafeWebLink(link)) return false;
+    // A removed link is explicitly saved as null so an old task link cannot
+    // silently restore the project-level reference.
+    if (legacyTitle && project?.primaryLink !== undefined && link.title.trim().toLowerCase() === legacyTitle) return false;
     if (!primary || !isSafeWebLink(primary)) return true;
-    if (legacyTitle && link.title.trim().toLowerCase() === legacyTitle) return false;
     return !(
       link.title.trim().toLowerCase() === primary.title.trim().toLowerCase() ||
       link.url.trim() === primary.url.trim()

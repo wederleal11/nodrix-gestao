@@ -36,3 +36,8 @@ test('project URLs normalize safe domains and reject unsupported schemes', () =>
   assert.throws(() => normalizeProjectLinkUrl('javascript:alert(1)'), /URL válida/);
   assert.throws(() => normalizeProjectLinkUrl('ftp://example.com'), /URL válida/);
 });
+test('removing the project link does not resurrect the old task panel', () => {
+  const removed = { ...project, primaryLink: null, primaryLinkLegacyTitle: 'Painel Nolasco' };
+  assert.equal(initialProjectMainLink(removed, [task]).link, null);
+  assert.deepEqual(effectiveTaskLinks(task, removed), [{ title: 'Evidência da tarefa', url: 'https://exemplo.com/relatorio' }]);
+});

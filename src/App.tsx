@@ -396,6 +396,7 @@ const MainApp: React.FC = () => {
           isOpen
           onClose={() => { setIsProjectModalOpen(false); setEditingProject(null); }}
           users={allUsers}
+          tasks={tasks}
           initialProject={editingProject}
         />
       )}
