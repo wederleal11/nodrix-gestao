@@ -445,6 +445,26 @@ export async function saveTask(
 }
 
 /** Atomic field-level additions prevent attachment uploads from overwriting task workflow changes. */
+/** Checklist writes never replace attachments, comments or a newer task status. */
+export async function toggleTaskChecklistItem(taskId: string, itemId: string): Promise<void> {
+  const path = `tasks/${taskId}`;
+  try {
+    await runTransaction(db, async (transaction) => {
+      const taskRef = doc(db, 'tasks', taskId);
+      const snap = await transaction.get(taskRef);
+      if (!snap.exists()) throw new Error('Demanda não encontrada. Atualize a tela.');
+      const items: Task['checklist'] = snap.data().checklist || [];
+      if (!items.some((item) => item.id === itemId)) throw new Error('Item de checklist não encontrado.');
+      transaction.update(taskRef, {
+        checklist: items.map((item) => item.id === itemId ? { ...item, done: !item.done } : item),
+        updatedAt: new Date().toISOString(),
+      });
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
 export async function addTaskActivity(taskId: string, item: TaskActivity): Promise<void> {
   const path = `tasks/${taskId}`;
   try {

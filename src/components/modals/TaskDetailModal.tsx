@@ -8,12 +8,10 @@ import {
   ShieldAlert,
   Edit2,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import type { Task, TaskImage, Project, UserProfile, PriorityLevel } from '../../types';
 import {
-  saveTask,
+  toggleTaskChecklistItem,
   updateTaskStatus,
   submitTaskForValidation,
   validateDelivery,
@@ -26,6 +24,8 @@ import {
 import { TaskImages } from '../tasks/TaskImages';
 import { TaskAvatar, ProjectPill, DeadlinePill, resolveTaskAssignee } from '../tasks/TaskIdentity';
 import { TaskActivityPanel } from '../tasks/TaskActivityPanel';
+import { TaskQuickActivity } from '../tasks/TaskQuickActivity';
+import { TaskChecklistPanel } from '../tasks/TaskChecklistPanel';
 import { deleteTaskImageBlob, formatTaskImageError, MAX_TASK_IMAGES, uploadTaskImage, validateTaskImage } from '../../services/taskImages';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -67,8 +67,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionError, setActionError] = useState('');
   const [detailTab, setDetailTab] = useState<'summary'|'activity'|'images'|'links'>('summary');
-  const [checkPage, setCheckPage] = useState(0);
-  useEffect(() => { setDetailTab('summary'); setCheckPage(0); }, [task?.id]);
+  const [checklistError, setChecklistError] = useState('');
+  useEffect(() => { setDetailTab('summary'); setChecklistError(''); }, [task?.id]);
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState('');
 
@@ -145,28 +145,19 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const overdue = isOverdue(task.deadline, task.status);
   const assignee = resolveTaskAssignee(users, task.assigneeId, task.assigneeName);
   const checklist = task.checklist || [];
-  const lastCheckPage = Math.max(0, Math.ceil(checklist.length / 4)-1);
-  const currentCheckPage = Math.min(checkPage,lastCheckPage);
   const pendingCount = (task.activity || []).filter((item) => item.kind === 'pending' && !item.resolved).length;
   const isAssignee = activeProfile?.uid === task.assigneeId;
   const canApprove = isAdmin || (activeProfile?.uid !== task.assigneeId);
   const isSelfApproval = activeProfile?.uid === task.assigneeId;
 
   const handleToggleChecklist = async (itemId: string) => {
-    if (!task.checklist) return;
-    const updatedChecklist = task.checklist.map((item) =>
-      item.id === itemId ? { ...item, done: !item.done } : item
-    );
-    const updatedTask = { ...task, checklist: updatedChecklist };
-    await saveTask(
-      updatedTask,
-      {
-        id: activeProfile?.uid || '',
-        name: activeProfile?.name || '',
-        email: activeProfile?.email || '',
-      },
-      false
-    );
+    if (!task || !profile) return;
+    setChecklistError('');
+    try {
+      await toggleTaskChecklistItem(task.id, itemId);
+    } catch {
+      setChecklistError('Não foi possível atualizar o checklist. Tente novamente.');
+    }
   };
 
   const handleStartTask = async () => {
@@ -340,36 +331,34 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         void addImages(Array.from(event.dataTransfer.files));
       }}
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[min(750px,94dvh)] overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[min(815px,96dvh)] overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
         {/* RELACIONA DARK NAVY HEADER */}
         <div className="bg-[#0e213e] text-white px-5 py-3 flex items-start justify-between shrink-0 gap-3">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span
-                className={`px-2 py-0.5 text-[10px] font-extrabold rounded ${
-                  task.priority === 'P0' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
-                }`}
-              >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded px-2 py-1 text-[10px] font-black text-white ${task.priority === 'P0' ? 'bg-red-600' : task.priority === 'P1' ? 'bg-orange-500' : 'bg-blue-600'}`}>
                 {task.priority}
               </span>
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-slate-200">
-                {task.status}
-              </span>
-              {overdue && (
-                <span className="px-2 py-0.5 text-[10px] font-extrabold bg-red-600 text-white rounded">
-                  ATRASADA
-                </span>
-              )}
+              <div className="max-w-[180px] min-w-0" title={task.projectName}>
+                <ProjectPill id={task.projectId} name={task.projectName} />
+              </div>
+              <DeadlinePill deadline={task.deadline} status={task.status} />
             </div>
-            <h2 className="text-[17px] font-bold text-white tracking-tight mt-1">
-              {task.title}
-            </h2>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <ProjectPill id={task.projectId} name={task.projectName} />
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-500 bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-white">
+            <h2 className="text-[16px] font-bold text-white leading-snug mt-1">{task.title}</h2>
+            <div className="flex items-center gap-2 flex-wrap mt-1">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-600 bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-white">
                 <TaskAvatar user={assignee} name={task.assigneeName} />{task.assigneeName || 'Não atribuído'}
               </span>
-              <DeadlinePill deadline={task.deadline} status={task.status} />
+              <span className="rounded bg-slate-800 px-2 py-1 text-[10px] font-semibold text-slate-200">{task.status.replace(/_/g,' ')}</span>
+              {(task.links || []).slice(0, 2).map((link, index) => {
+                const validUrl = /^https?:\/\//i.test(link.url);
+                return validUrl ? <a key={index} href={link.url} target="_blank" rel="noopener noreferrer"
+                  title={link.title} className="inline-flex max-w-[170px] items-center gap-1 truncate rounded border border-slate-600 px-2 py-1 text-[11px] text-cyan-200 hover:bg-slate-700">
+                    <ExternalLink className="w-3 h-3 shrink-0"/><span className="truncate">{link.title}</span>
+                  </a> : null;
+              })}
+              {(task.links?.length || 0) > 2 && <button type="button" onClick={()=>setDetailTab('links')}
+                className="text-[11px] text-cyan-200 font-bold hover:underline">+{task.links!.length-2} referências</button>}
             </div>
           </div>
 
@@ -426,7 +415,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               {label}
             </button>)}
           </div>
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
             {detailTab === 'summary' && (
               <div className="space-y-3">
                 {task.description && <p className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-700 line-clamp-2" title={task.description}>{task.description}</p>}
@@ -497,32 +486,34 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           )}
 
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-blue-200 bg-slate-50 p-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 shrink-0">
+                  <div className="rounded-lg border border-blue-200 bg-slate-50 px-3 py-2.5">
                     <strong className="block text-[11px] uppercase text-blue-700 mb-1">Resultado esperado</strong>
-                    <p className="text-xs text-slate-800 whitespace-pre-line line-clamp-5">{task.expectedResult || 'Não definido'}</p>
+                    <p className="text-xs text-slate-800 whitespace-pre-line line-clamp-3" title={task.expectedResult}>{task.expectedResult || 'Não definido'}</p>
                   </div>
-                  <div className="rounded-lg border border-emerald-200 bg-slate-50 p-3">
+                  <div className="rounded-lg border border-emerald-200 bg-slate-50 px-3 py-2.5">
                     <strong className="block text-[11px] uppercase text-emerald-700 mb-1">Critérios de aceite</strong>
-                    <p className="text-xs text-slate-800 whitespace-pre-line line-clamp-5">{task.acceptanceCriteria || 'Não definidos'}</p>
+                    <p className="text-xs text-slate-800 whitespace-pre-line line-clamp-3" title={task.acceptanceCriteria}>{task.acceptanceCriteria || 'Não definidos'}</p>
                   </div>
                 </div>
-                <div className="rounded-lg border border-slate-200 p-3">
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <strong className="text-xs text-slate-800">Checklist ({checklist.filter((item) => item.done).length}/{checklist.length})</strong>
-                    {lastCheckPage > 0 && <div className="flex items-center gap-2 text-xs text-slate-600">
-                      <button type="button" disabled={!currentCheckPage} onClick={() => setCheckPage(currentCheckPage-1)} aria-label="Checklist anterior" className="disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
-                      {currentCheckPage+1}/{lastCheckPage+1}
-                      <button type="button" disabled={currentCheckPage === lastCheckPage} onClick={() => setCheckPage(currentCheckPage+1)} aria-label="Próximo checklist" className="disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
-                    </div>}
-                  </div>
-                  {checklist.length === 0 && <p className="text-xs text-slate-500">Nenhuma etapa cadastrada.</p>}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
-                    {checklist.slice(currentCheckPage*4,(currentCheckPage+1)*4).map((item) =>
-                      <label key={item.id} className="flex items-center gap-2 py-1 rounded cursor-pointer text-xs text-slate-700">
-                        <input type="checkbox" checked={item.done} onChange={() => void handleToggleChecklist(item.id)} className="w-4 h-4 accent-blue-600 shrink-0" />
-                        <span className={item.done ? 'line-through text-slate-500' : ''}>{item.text}</span>
-                      </label>)}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+                  <TaskChecklistPanel
+                    key={task.id}
+                    items={checklist}
+                    onToggle={handleToggleChecklist}
+                    error={checklistError}
+                  />
+                  <div className="flex flex-col gap-2 min-w-0">
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <TaskImages compact images={task.images || []}
+                        onViewAll={() => setDetailTab('images')}
+                        onFiles={(files) => void addImages(files)}
+                        onRemoveExisting={(image) => void removeImage(image)}
+                        canRemove={(image) => Boolean(profile?.uid && image.uploadedBy === profile.uid)}
+                        disabled={imageBusy} busy={imageBusy} />
+                      {imageError && <p role="alert" className="mt-1 text-[11px] text-rose-700">{imageError}</p>}
+                    </div>
+                    <TaskQuickActivity key={task.id} task={task} onHistory={()=>setDetailTab('activity')} />
                   </div>
                 </div>
               </div>
