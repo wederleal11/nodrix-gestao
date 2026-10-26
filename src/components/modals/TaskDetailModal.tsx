@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   AlertTriangle,
@@ -9,7 +9,7 @@ import {
   Edit2,
   Trash2,
 } from 'lucide-react';
-import type { Task, Project, UserProfile, PriorityLevel } from '../../types';
+import type { Task, TaskImage, Project, UserProfile, PriorityLevel } from '../../types';
 import {
   saveTask,
   updateTaskStatus,
@@ -18,7 +18,11 @@ import {
   reportTaskBlocker,
   resolveTaskBlocker,
   deleteTask,
+  attachTaskImage,
+  detachTaskImage,
 } from '../../services/db';
+import { TaskImages } from '../tasks/TaskImages';
+import { deleteTaskImageBlob, formatTaskImageError, MAX_TASK_IMAGES, uploadTaskImage, validateTaskImage } from '../../services/taskImages';
 import { useAuth } from '../../context/AuthContext';
 import {
   formatDateBR,
@@ -41,7 +45,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   projects,
   users,
 }) => {
-  const { activeProfile, isAdmin } = useAuth();
+  const { activeProfile, profile, isAdmin } = useAuth();
 
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [deliverySummary, setDeliverySummary] = useState('');
@@ -58,6 +62,76 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState('');
+
+  useEffect(() => {
+    setImageError('');
+    setImageBusy(false);
+  }, [task?.id]);
+
+  const addImages = async (files: File[]) => {
+    if (!task || !profile || imageBusy) return;
+    setImageError('');
+    const validFiles = files.filter((file) => {
+      const error = validateTaskImage(file);
+      if (error) setImageError(error);
+      return !error;
+    });
+    const slots = MAX_TASK_IMAGES - (task.images?.length || 0);
+    if (validFiles.length > slots) {
+      setImageError(`Limite de ${MAX_TASK_IMAGES} imagens. Existem ${task.images?.length || 0} salvas.`);
+      return;
+    }
+    if (!validFiles.length) return;
+    setImageBusy(true);
+    try {
+      for (const file of validFiles) {
+        const uploaded = await uploadTaskImage(task.id, file, profile.uid);
+        try {
+          await attachTaskImage(task.id, uploaded);
+        } catch (err) {
+          await deleteTaskImageBlob(uploaded).catch(() => {});
+          throw err;
+        }
+      }
+    } catch (err) {
+      setImageError(formatTaskImageError(err));
+    } finally {
+      setImageBusy(false);
+    }
+  };
+
+  const removeImage = async (image: TaskImage) => {
+    if (!task || !profile || imageBusy || image.uploadedBy !== profile.uid) return;
+    if (!window.confirm(`Remover a imagem "${image.name}" desta demanda?`)) return;
+    setImageError('');
+    setImageBusy(true);
+    try {
+      // Remove the reference first to avoid dangling links if Storage is unavailable.
+      await detachTaskImage(task.id, image);
+      try {
+        await deleteTaskImageBlob(image);
+      } catch {
+        setImageError('A imagem saiu da demanda, mas o arquivo não pôde ser limpo do Storage. Informe o gestor.');
+      }
+    } catch (err) {
+      setImageError(formatTaskImageError(err));
+    } finally {
+      setImageBusy(false);
+    }
+  };
+
+  const onPasteImages = (event: React.ClipboardEvent) => {
+    if (imageBusy || !profile) return;
+    const images = Array.from(event.clipboardData?.items || [])
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile()).filter((file): file is File => file !== null);
+    if (images.length) {
+      event.preventDefault();
+      void addImages(images);
+    }
+  };
 
   if (!task) return null;
 
@@ -245,7 +319,15 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto"
+      onPaste={onPasteImages}
+      onDragOver={(event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); }}
+      onDrop={(event) => {
+        if (event.defaultPrevented || !event.dataTransfer.files.length) return;
+        event.preventDefault();
+        void addImages(Array.from(event.dataTransfer.files));
+      }}
+    >
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-6 overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150 max-h-[92vh]">
         {/* RELACIONA DARK NAVY HEADER */}
         <div className="bg-[#0e213e] text-white px-6 py-4 flex items-start justify-between">
@@ -465,6 +547,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               </div>
             </div>
           )}
+
+          <div className="pt-3 border-t border-slate-100 space-y-2">
+            <TaskImages
+              images={task.images || []}
+              onFiles={(files) => void addImages(files)}
+              onRemoveExisting={(image) => void removeImage(image)}
+              canRemove={(image) => Boolean(profile?.uid && image.uploadedBy === profile.uid)}
+              disabled={imageBusy}
+              busy={imageBusy}
+            />
+            {imageError && <p role="alert" className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-2">{imageError}</p>}
+          </div>
 
           {/* RELACIONA ACTION FOOTER */}
           <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
