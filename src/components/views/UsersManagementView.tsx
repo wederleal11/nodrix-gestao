@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import type { UserProfile, UserRole } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { deleteUser, upsertUserProfile } from '../../services/db';
+import { deleteUser, formatProjectWriteError, upsertUserProfile } from '../../services/db';
 import { formatDateBR } from '../../utils/formatters';
 
 interface UsersManagementViewProps {
