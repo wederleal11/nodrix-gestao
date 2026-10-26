@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   X,
   AlertTriangle,
@@ -26,6 +26,7 @@ import { TaskAvatar, ProjectPill, DeadlinePill, resolveTaskAssignee } from '../t
 import { TaskActivityPanel } from '../tasks/TaskActivityPanel';
 import { TaskQuickActivity } from '../tasks/TaskQuickActivity';
 import { TaskChecklistPanel } from '../tasks/TaskChecklistPanel';
+import { TaskTextPreview, TaskTextDetailsModal, type TaskTextSection } from '../tasks/TaskTextDetails';
 import { effectiveTaskLinks } from '../../utils/projectLinks';
 import { deleteTaskImageBlob, formatTaskImageError, MAX_TASK_IMAGES, uploadTaskImage, validateTaskImage } from '../../services/taskImages';
 import { useAuth } from '../../context/AuthContext';
@@ -69,7 +70,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [actionError, setActionError] = useState('');
   const [detailTab, setDetailTab] = useState<'summary'|'activity'|'images'|'links'>('summary');
   const [checklistError, setChecklistError] = useState('');
-  useEffect(() => { setDetailTab('summary'); setChecklistError(''); }, [task?.id]);
+  const [expandedTextSection, setExpandedTextSection] = useState<TaskTextSection | null>(null);
+  const closeTextDetails = useCallback(() => setExpandedTextSection(null), []);
+  useEffect(() => {
+    setDetailTab('summary');
+    setChecklistError('');
+    setExpandedTextSection(null);
+  }, [task?.id]);
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState('');
 
@@ -421,7 +428,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden flex flex-col">
             {detailTab === 'summary' && (
               <div className="flex-1 min-h-0 flex flex-col gap-3 lg:overflow-hidden">
-                {task.description && <p className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-700 line-clamp-2" title={task.description}>{task.description}</p>}
+                {task.description && <TaskTextPreview section="description" value={task.description} onExpand={setExpandedTextSection} />}
           {/* Blocker alert if blocked */}
           {task.status === 'blocked' && (
             <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg text-red-900 space-y-1.5">
@@ -490,14 +497,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 shrink-0">
-                  <div className="rounded-lg border border-blue-200 bg-slate-50 px-3 py-2.5">
-                    <strong className="block text-[11px] uppercase text-blue-700 mb-1">Resultado esperado</strong>
-                    <p className="text-xs text-slate-800 whitespace-pre-line line-clamp-3" title={task.expectedResult}>{task.expectedResult || 'Não definido'}</p>
-                  </div>
-                  <div className="rounded-lg border border-emerald-200 bg-slate-50 px-3 py-2.5">
-                    <strong className="block text-[11px] uppercase text-emerald-700 mb-1">Critérios de aceite</strong>
-                    <p className="text-xs text-slate-800 whitespace-pre-line line-clamp-3" title={task.acceptanceCriteria}>{task.acceptanceCriteria || 'Não definidos'}</p>
-                  </div>
+                  <TaskTextPreview section="expectedResult" value={task.expectedResult} onExpand={setExpandedTextSection} />
+                  <TaskTextPreview section="acceptanceCriteria" value={task.acceptanceCriteria} onExpand={setExpandedTextSection} />
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1 min-h-[480px] lg:min-h-0 lg:grid-rows-[minmax(0,1fr)] items-stretch">
                   <TaskChecklistPanel
@@ -790,6 +791,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           </div>
         )}
       </div>
+      {expandedTextSection && (
+        <TaskTextDetailsModal
+          task={task}
+          initialSection={expandedTextSection}
+          onClose={closeTextDetails}
+        />
+      )}
     </div>
   );
 };
