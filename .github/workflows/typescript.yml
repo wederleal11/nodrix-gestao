@@ -18,6 +18,8 @@ jobs:
           persist-credentials: false
       - name: Install dependencies
         run: npm install --no-audit --no-fund --legacy-peer-deps
+      - name: Test project links
+        run: npx tsx --test src/utils/projectLinks.test.ts
       - name: Check TypeScript
         run: npm run lint
       - name: Build client
