@@ -107,7 +107,7 @@ export const TaskBulkImportModal: React.FC<{
           <strong className="block text-slate-800">Prévia: {preview.rows.length} válidas · {preview.errors.length} erros</strong>
           {preview.errors.length > 0 && <div className="max-h-40 overflow-y-auto rounded-md bg-rose-50 p-2 space-y-1" role="alert">
             {preview.errors.map((e,i)=><p key={i} className="text-rose-700">• {e}</p>)}
-          </div>
+          </div>}
           {preview.errors.length===0 && preview.rows.slice(0,4).map((row)=>(
             <p key={row.id} className="flex gap-2 justify-between border-b border-slate-100 pb-1 text-slate-700">
               <span className="truncate font-semibold">{row.title}</span><span className="shrink-0 text-slate-500">{row.projectName} • {row.priority}</span>
