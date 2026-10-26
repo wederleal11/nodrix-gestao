@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function googleVerified() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
+    // Storage Security Rules cannot reliably authorize against the app's
+    // non-default named Firestore database. Until a server-side authorization
+    // layer is added, access is restricted to verified Google accounts, and
+    // only the uploader may delete their own file. Never use public writes.
+    match /task-images/{taskId}/{ownerUid}/{imageId} {
+      allow read: if googleVerified();
+
+      allow create: if googleVerified()
+        && request.auth.uid == ownerUid
+        && taskId.size() <= 128
+        && imageId.size() <= 80
+        && request.resource.size > 0
+        && request.resource.size <= 6 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|gif)')
+        && request.resource.metadata.uploadedBy == request.auth.uid;
+
+      allow delete: if googleVerified() && request.auth.uid == ownerUid;
+      allow update: if false;
+    }
+  }
+}

@@ -73,6 +73,16 @@ export interface TaskLink {
   url: string;
 }
 
+export interface TaskImage {
+  id: string;
+  name: string;
+  storagePath: string;
+  contentType: string;
+  size: number;
+  uploadedBy: string;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -89,6 +99,7 @@ export interface Task {
   plannedWeek?: string; // e.g. "2026-W43"
   checklist?: ChecklistItem[];
   links?: TaskLink[];
+  images?: TaskImage[];
   dependencies?: string;
   
   // Blocker details

@@ -10,6 +10,8 @@ import {
   getDocFromServer,
   writeBatch,
   query,
+  arrayUnion,
+  arrayRemove,
   where,
   orderBy,
   onSnapshot,
@@ -21,6 +23,7 @@ import type {
   Project,
   ProjectStatus,
   Task,
+  TaskImage,
   UserProfile,
   WeeklyEvent,
   DailyCheckin,
@@ -401,8 +404,10 @@ export async function saveTask(
 ): Promise<void> {
   const path = `tasks/${task.id}`;
   try {
+    // Firestore rejects undefined fields; edited tasks may contain optional data.
+    const safeTask = Object.fromEntries(Object.entries(task).filter(([, value]) => value !== undefined));
     await setDoc(doc(db, 'tasks', task.id), {
-      ...task,
+      ...safeTask,
       updatedAt: new Date().toISOString(),
     });
     await logAuditEvent({
@@ -416,6 +421,31 @@ export async function saveTask(
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/** Atomic field-level additions prevent attachment uploads from overwriting task workflow changes. */
+export async function attachTaskImage(taskId: string, image: TaskImage): Promise<void> {
+  const path = `tasks/${taskId}`;
+  try {
+    await updateDoc(doc(db, 'tasks', taskId), {
+      images: arrayUnion(image),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function detachTaskImage(taskId: string, image: TaskImage): Promise<void> {
+  const path = `tasks/${taskId}`;
+  try {
+    await updateDoc(doc(db, 'tasks', taskId), {
+      images: arrayRemove(image),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }
 

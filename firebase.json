@@ -4,5 +4,8 @@
       "database": "ai-studio-nodrixgesto-1c983e82-bfa7-44e9-ad7d-a026ac022014",
       "rules": "firestore.rules"
     }
-  ]
+  ],
+  "storage": {
+    "rules": "storage.rules"
+  }
 }

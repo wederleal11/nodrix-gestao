@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -7,6 +8,7 @@ const app = initializeApp(firebaseConfig);
 // CRITICAL: Must pass firestoreDatabaseId for custom provisioned Firestore instance
 const dbId = (firebaseConfig as { firestoreDatabaseId?: string }).firestoreDatabaseId || '(default)';
 export const db = getFirestore(app, dbId);
+export const storage = getStorage(app);
 export const auth = getAuth(app);
 export const googleAuthProvider = new GoogleAuthProvider();
 
