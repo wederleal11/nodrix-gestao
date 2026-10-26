@@ -8,6 +8,8 @@ import {
   ShieldAlert,
   Edit2,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import type { Task, TaskImage, Project, UserProfile, PriorityLevel } from '../../types';
 import {
@@ -22,6 +24,8 @@ import {
   detachTaskImage,
 } from '../../services/db';
 import { TaskImages } from '../tasks/TaskImages';
+import { TaskAvatar, ProjectPill, DeadlinePill } from '../tasks/TaskIdentity';
+import { TaskActivityPanel } from '../tasks/TaskActivityPanel';
 import { deleteTaskImageBlob, formatTaskImageError, MAX_TASK_IMAGES, uploadTaskImage, validateTaskImage } from '../../services/taskImages';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -62,6 +66,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [detailTab, setDetailTab] = useState<'summary'|'activity'|'images'|'links'>('summary');
+  const [checkPage, setCheckPage] = useState(0);
+  useEffect(() => { setDetailTab('summary'); setCheckPage(0); }, [task?.id]);
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState('');
 
@@ -136,6 +143,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   if (!task) return null;
 
   const overdue = isOverdue(task.deadline, task.status);
+  const assignee = users.find((u) => u.uid === task.assigneeId)
+    || users.find((u) => u.name.toLowerCase() === (task.assigneeName || '').toLowerCase());
+  const checklist = task.checklist || [];
+  const lastCheckPage = Math.max(0, Math.ceil(checklist.length / 4)-1);
+  const currentCheckPage = Math.min(checkPage,lastCheckPage);
+  const pendingCount = (task.activity || []).filter((item) => item.kind === 'pending' && !item.resolved).length;
   const isAssignee = activeProfile?.uid === task.assigneeId;
   const canApprove = isAdmin || (activeProfile?.uid !== task.assigneeId);
   const isSelfApproval = activeProfile?.uid === task.assigneeId;
@@ -319,7 +332,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3"
       onPaste={onPasteImages}
       onDragOver={(event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); }}
       onDrop={(event) => {
@@ -328,9 +341,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         void addImages(Array.from(event.dataTransfer.files));
       }}
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-6 overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150 max-h-[92vh]">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[min(750px,94dvh)] overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
         {/* RELACIONA DARK NAVY HEADER */}
-        <div className="bg-[#0e213e] text-white px-6 py-4 flex items-start justify-between">
+        <div className="bg-[#0e213e] text-white px-5 py-3 flex items-start justify-between shrink-0 gap-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span
@@ -352,9 +365,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <h2 className="text-[17px] font-bold text-white tracking-tight mt-1">
               {task.title}
             </h2>
-            <p className="text-xs text-slate-300 font-normal">
-              Projeto: {task.projectName} • Responsável: {task.assigneeName || 'Não atribuído'}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <ProjectPill id={task.projectId} name={task.projectName} />
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-500 bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-white">
+                <TaskAvatar user={assignee} name={task.assigneeName} />{task.assigneeName || 'Não atribuído'}
+              </span>
+              <DeadlinePill deadline={task.deadline} status={task.status} />
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -392,31 +409,28 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         </div>
 
         {/* MODAL CONTENT */}
-        <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1 bg-white">
+        <div className="px-5 py-3 text-xs flex-1 min-h-0 bg-white flex flex-col gap-3 overflow-hidden">
           {actionError && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg font-medium">
               {actionError}
             </div>
           )}
 
-          {/* Metadata bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">
-            <div>
-              <span className="text-slate-400 text-[10px] block font-medium">PROJETO</span>
-              <strong className="text-slate-900 text-xs">{task.projectName}</strong>
-            </div>
-            <div>
-              <span className="text-slate-400 text-[10px] block font-medium">RESPONSÁVEL</span>
-              <strong className="text-slate-900 text-xs">{task.assigneeName || 'Não atribuído'}</strong>
-            </div>
-            <div>
-              <span className="text-slate-400 text-[10px] block font-medium">PRAZO</span>
-              <strong className={`text-xs ${overdue ? 'text-red-600 font-bold' : 'text-slate-900'}`}>
-                {formatDateBR(task.deadline)}
-              </strong>
-            </div>
+          <div role="tablist" aria-label="Seções da demanda" className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 pb-2 shrink-0">
+            {([
+              ['summary', 'Resumo'],
+              ['activity', `Acompanhamento${pendingCount ? ` (${pendingCount})` : ''}`],
+              ['images', `Imagens (${task.images?.length || 0})`],
+              ['links', `Referências (${task.links?.length || 0})`],
+            ] as const).map(([tab, label]) => <button key={tab} role="tab" aria-selected={detailTab === tab} type="button" onClick={() => setDetailTab(tab)}
+              className={`rounded-md px-3 py-2 text-[11px] font-bold transition-colors ${detailTab === tab ? 'bg-[#004e9a] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              {label}
+            </button>)}
           </div>
-
+          <div className="flex-1 min-h-0">
+            {detailTab === 'summary' && (
+              <div className="space-y-3">
+                {task.description && <p className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-700 line-clamp-2" title={task.description}>{task.description}</p>}
           {/* Blocker alert if blocked */}
           {task.status === 'blocked' && (
             <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg text-red-900 space-y-1.5">
@@ -483,85 +497,58 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </div>
           )}
 
-          {/* Expected Result & Criteria */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
-              <span className="text-[11px] font-bold text-blue-600 uppercase block mb-1">
-                Resultado Esperado
-              </span>
-              <p className="text-slate-800 whitespace-pre-line leading-relaxed text-xs">
-                {task.expectedResult || 'Sem resultado formal definido.'}
-              </p>
-            </div>
 
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
-              <span className="text-[11px] font-bold text-emerald-600 uppercase block mb-1">
-                Critérios de Aceite
-              </span>
-              <p className="text-slate-800 whitespace-pre-line leading-relaxed text-xs">
-                {task.acceptanceCriteria || 'Critérios padrão de homologação.'}
-              </p>
-            </div>
-          </div>
-
-          {/* Checklist */}
-          {task.checklist && task.checklist.length > 0 && (
-            <div className="space-y-1.5 pt-1">
-              <span className="font-semibold text-slate-700 block text-xs">
-                Checklist ({task.checklist.filter(i => i.done).length}/{task.checklist.length})
-              </span>
-              <div className="space-y-1">
-                {task.checklist.map((item) => (
-                  <label key={item.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-slate-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={item.done}
-                      onChange={() => handleToggleChecklist(item.id)}
-                      className="w-4 h-4 text-blue-600 rounded"
-                    />
-                    <span className={item.done ? 'line-through text-slate-400 text-xs' : 'text-slate-800 text-xs'}>
-                      {item.text}
-                    </span>
-                  </label>
-                ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-blue-200 bg-slate-50 p-3">
+                    <strong className="block text-[11px] uppercase text-blue-700 mb-1">Resultado esperado</strong>
+                    <p className="text-xs text-slate-800 whitespace-pre-line line-clamp-5">{task.expectedResult || 'Não definido'}</p>
+                  </div>
+                  <div className="rounded-lg border border-emerald-200 bg-slate-50 p-3">
+                    <strong className="block text-[11px] uppercase text-emerald-700 mb-1">Critérios de aceite</strong>
+                    <p className="text-xs text-slate-800 whitespace-pre-line line-clamp-5">{task.acceptanceCriteria || 'Não definidos'}</p>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-3">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <strong className="text-xs text-slate-800">Checklist ({checklist.filter((item) => item.done).length}/{checklist.length})</strong>
+                    {lastCheckPage > 0 && <div className="flex items-center gap-2 text-xs text-slate-600">
+                      <button type="button" disabled={!currentCheckPage} onClick={() => setCheckPage(currentCheckPage-1)} aria-label="Checklist anterior" className="disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
+                      {currentCheckPage+1}/{lastCheckPage+1}
+                      <button type="button" disabled={currentCheckPage === lastCheckPage} onClick={() => setCheckPage(currentCheckPage+1)} aria-label="Próximo checklist" className="disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
+                    </div>}
+                  </div>
+                  {checklist.length === 0 && <p className="text-xs text-slate-500">Nenhuma etapa cadastrada.</p>}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
+                    {checklist.slice(currentCheckPage*4,(currentCheckPage+1)*4).map((item) =>
+                      <label key={item.id} className="flex items-center gap-2 py-1 rounded cursor-pointer text-xs text-slate-700">
+                        <input type="checkbox" checked={item.done} onChange={() => void handleToggleChecklist(item.id)} className="w-4 h-4 accent-blue-600 shrink-0" />
+                        <span className={item.done ? 'line-through text-slate-500' : ''}>{item.text}</span>
+                      </label>)}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Links */}
-          {task.links && task.links.length > 0 && (
-            <div className="space-y-1.5 pt-1">
-              <span className="font-semibold text-slate-700 block text-xs">Links e referências</span>
-              <div className="flex flex-wrap gap-2">
-                {task.links.map((link, idx) => (
-                  <a
-                    key={idx}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-slate-100 text-blue-600 rounded hover:underline"
-                  >
-                    {link.title} <ExternalLink className="w-3 h-3" />
-                  </a>
-                ))}
+            )}
+            {detailTab === 'activity' && <TaskActivityPanel key={task.id} task={task} />}
+            {detailTab === 'images' && <div className="space-y-3">
+              <TaskImages images={task.images || []} onFiles={(files) => void addImages(files)}
+                onRemoveExisting={(image) => void removeImage(image)}
+                canRemove={(image) => Boolean(profile?.uid && image.uploadedBy === profile.uid)}
+                disabled={imageBusy} busy={imageBusy} />
+              {imageError && <p role="alert" className="text-xs text-rose-700">{imageError}</p>}
+            </div>}
+            {detailTab === 'links' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {(task.links || []).map((link,i) => <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-3 text-xs font-semibold text-blue-700 hover:border-blue-400 hover:bg-blue-50">
+                    <span className="truncate">{link.title}</span><ExternalLink className="w-4 h-4 shrink-0" />
+                  </a>)}
+                {!task.links?.length && <p className="text-xs text-slate-500">Nenhum link cadastrado. Edite a demanda para adicionar referências.</p>}
               </div>
-            </div>
-          )}
-
-          <div className="pt-3 border-t border-slate-100 space-y-2">
-            <TaskImages
-              images={task.images || []}
-              onFiles={(files) => void addImages(files)}
-              onRemoveExisting={(image) => void removeImage(image)}
-              canRemove={(image) => Boolean(profile?.uid && image.uploadedBy === profile.uid)}
-              disabled={imageBusy}
-              busy={imageBusy}
-            />
-            {imageError && <p role="alert" className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-2">{imageError}</p>}
+            )}
           </div>
 
           {/* RELACIONA ACTION FOOTER */}
-          <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-2">
               {(task.status === 'backlog' || task.status === 'planned') && (
                 <button
