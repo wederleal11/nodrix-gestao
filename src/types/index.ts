@@ -37,6 +37,10 @@ export interface Project {
   completionCriteria: string;
   repoUrl?: string;
   docsUrl?: string;
+  /** Canonical project link shown in every related task. */
+  primaryLink?: TaskLink | null;
+  /** Title of the promoted legacy task link, for deduplication without task writes. */
+  primaryLinkLegacyTitle?: string;
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
