@@ -422,6 +422,9 @@ export async function saveTask(
         const additions = newlyUploadedImages.filter((image) => !currentImages.some((saved) => saved.id === image.id));
         transaction.update(taskRef, {
           ...safeTask,
+          // Operator activity and images are independently updated using atomic
+          // field operations. Never replace them with stale form data.
+          activity: persisted.activity || [],
           images: [...currentImages, ...additions],
           updatedAt: new Date().toISOString(),
         });
