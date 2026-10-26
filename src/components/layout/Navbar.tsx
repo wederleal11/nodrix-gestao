@@ -147,6 +147,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     )}
                   </p>
                   <p className="text-[11px] text-slate-500 truncate">{profile?.email}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Versão {import.meta.env.VITE_APP_SHA?.slice(0, 7) || 'local'}</p>
                 </div>
 
                 <div className="p-1 space-y-0.5">
