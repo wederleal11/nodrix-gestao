@@ -24,7 +24,7 @@ export const TaskQuickActivity: React.FC<{task: Task; onHistory: () => void}> = 
     catch { setError('Não foi possível registrar. Verifique a conexão.'); }
     finally { setBusy(false); }
   };
-  return <section className="min-h-0 flex flex-col rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+  return <section className="min-h-0 flex-1 flex flex-col rounded-lg border border-slate-200 bg-white px-3 py-2.5">
     <div className="flex items-center justify-between gap-1 mb-2">
       <div className="inline-flex gap-1.5 items-center min-w-0">
         <MessageSquareText className="w-4 h-4 text-blue-700" />
@@ -33,18 +33,18 @@ export const TaskQuickActivity: React.FC<{task: Task; onHistory: () => void}> = 
       </div>
       <button type="button" onClick={onHistory} className="text-[11px] text-blue-700 font-bold shrink-0">Histórico ({activity.length})</button>
     </div>
-    <form onSubmit={(event)=>void save(event)} className="flex flex-col gap-1.5">
+    <form onSubmit={(event)=>void save(event)} className="flex-1 min-h-0 flex flex-col gap-1.5">
       <div className="flex items-center gap-1">
         <button type="button" onClick={()=>setType('observation')} className={`rounded px-2 py-1 text-[10px] font-bold ${type==='observation'?'bg-blue-700 text-white':'bg-slate-100 text-slate-600'}`}>Observação</button>
         <button type="button" onClick={()=>setType('pending')} className={`rounded px-2 py-1 text-[10px] font-bold ${type==='pending'?'bg-amber-600 text-white':'bg-slate-100 text-slate-600'}`}>Pendência</button>
       </div>
-      <div className="flex gap-2 items-end">
+      <div className="flex flex-1 min-h-0 gap-2 items-stretch">
         <label htmlFor="task-quick-activity" className="sr-only">Escrever observação ou pendência</label>
         <textarea id="task-quick-activity" value={value} onChange={(e)=>setValue(e.target.value)}
           maxLength={1500} rows={2} placeholder="Registrar o que foi feito ou o que está pendente..."
-          className="min-w-0 flex-1 resize-none rounded-md border border-slate-200 p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"/>
+          className="min-w-0 min-h-[64px] h-full flex-1 resize-none rounded-md border border-slate-200 p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"/>
         <button type="submit" disabled={busy || !profile || !value.trim()}
-          className="inline-flex items-center gap-1 rounded-md bg-[#004e9a] px-3 py-2 text-[11px] font-bold text-white disabled:opacity-40">
+          className="self-end inline-flex items-center gap-1 rounded-md bg-[#004e9a] px-3 py-2 text-[11px] font-bold text-white disabled:opacity-40">
           <Plus className="h-3.5 w-3.5"/> {busy?'Salvando':'Registrar'}
         </button>
       </div>

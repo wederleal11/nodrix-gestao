@@ -50,7 +50,7 @@ export const TaskChecklistPanel: React.FC<Props> = ({ items, onToggle, disabled,
   );
 
   return <>
-    <section className="min-h-0 flex flex-col rounded-lg border border-slate-200 bg-white p-3 h-[242px]">
+    <section className="min-h-0 h-full flex flex-col rounded-lg border border-slate-200 bg-white p-3">
       <header className="flex items-center justify-between gap-2 pb-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <CheckCircle2 className="w-4 h-4 text-blue-700 shrink-0"/>

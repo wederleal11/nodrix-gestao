@@ -415,9 +415,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               {label}
             </button>)}
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden flex flex-col">
             {detailTab === 'summary' && (
-              <div className="space-y-3">
+              <div className="flex-1 min-h-0 flex flex-col gap-3 lg:overflow-hidden">
                 {task.description && <p className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-700 line-clamp-2" title={task.description}>{task.description}</p>}
           {/* Blocker alert if blocked */}
           {task.status === 'blocked' && (
@@ -496,15 +496,15 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     <p className="text-xs text-slate-800 whitespace-pre-line line-clamp-3" title={task.acceptanceCriteria}>{task.acceptanceCriteria || 'Não definidos'}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1 min-h-[480px] lg:min-h-0 lg:grid-rows-[minmax(0,1fr)] items-stretch">
                   <TaskChecklistPanel
                     key={task.id}
                     items={checklist}
                     onToggle={handleToggleChecklist}
                     error={checklistError}
                   />
-                  <div className="flex flex-col gap-2 min-w-0">
-                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="flex flex-col gap-2 min-w-0 min-h-0 h-full">
+                    <div className="rounded-lg border border-slate-200 bg-white p-3 shrink-0">
                       <TaskImages compact images={task.images || []}
                         onViewAll={() => setDetailTab('images')}
                         onFiles={(files) => void addImages(files)}
