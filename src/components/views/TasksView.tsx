@@ -445,7 +445,6 @@ export const TasksView: React.FC<TasksViewProps> = ({
             );
           })}
         </div>
-      </div>
 
       {showBulkImport && <TaskBulkImportModal
         projects={projects} users={users} tasks={tasks} onClose={() => setShowBulkImport(false)} />}
