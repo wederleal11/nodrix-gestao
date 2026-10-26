@@ -66,6 +66,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     if (accepted.length) {
       pendingRef.current = [...pendingRef.current, ...accepted];
       setPendingImages(pendingRef.current);
+      setFormTab('images');
     }
   };
 
@@ -89,6 +90,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
   // Collapsible section like print 2
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [formTab, setFormTab] = useState<'base'|'delivery'|'images'|'extra'>('base');
 
   if (!isOpen) return null;
 
@@ -121,21 +123,25 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     setErrorMessage('');
 
     if (!title.trim()) {
+      setFormTab('base');
       setErrorMessage('O título da demanda é obrigatório.');
       return;
     }
 
     if (!projectId) {
+      setFormTab('base');
       setErrorMessage('Selecione um projeto para a demanda.');
       return;
     }
 
     if (status === 'in_progress') {
       if (!assigneeId) {
+        setFormTab('base');
         setErrorMessage('Para colocar a demanda "Em andamento", um responsável principal é obrigatório.');
         return;
       }
       if (!expectedResult.trim()) {
+        setFormTab('delivery');
         setErrorMessage('Para colocar a demanda "Em andamento", o resultado esperado é obrigatório.');
         return;
       }
@@ -201,8 +207,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl my-6 max-h-[92vh] overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl h-[min(700px,94dvh)] overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
         {/* RELACIONA DARK NAVY HEADER */}
         <div className="bg-[#0e213e] text-white px-6 py-4 flex items-start justify-between">
           <div>
@@ -233,7 +239,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             event.preventDefault();
             queueImages(Array.from(event.dataTransfer.files));
           }}
-          className="p-6 space-y-4 bg-white text-xs overflow-y-auto"
+          className="p-5 bg-white text-xs flex flex-col flex-1 min-h-0 gap-3 overflow-hidden"
         >
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg font-medium text-xs">
@@ -241,6 +247,21 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
           )}
 
+          <div role="tablist" aria-label="Etapas do formulário" className="flex gap-1.5 border-b border-slate-200 pb-2 flex-wrap shrink-0">
+            {([
+              ['base','Dados'],
+              ['delivery','Entrega'],
+              ['images',`Imagens (${pendingImages.length + (initialTask?.images?.length || 0)})`],
+              ['extra','Checklist e links'],
+            ] as const).map(([tab,label])=>(
+              <button type="button" key={tab} role="tab" aria-selected={formTab === tab} onClick={()=>setFormTab(tab)}
+                className={`px-3 py-2 text-xs font-bold rounded-md ${formTab===tab?'bg-[#004e9a] text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+          {formTab === 'base' && <div className="space-y-3">
           {/* Title */}
           <div>
             <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
@@ -355,6 +376,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             />
           </div>
 
+          </div>}
+          {formTab === 'delivery' && <div className="space-y-3">
           {/* Expected Result & Acceptance Criteria */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
@@ -384,6 +407,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
           </div>
 
+          </div>}
+          {formTab === 'images' && <div className="space-y-3">
           <TaskImages
             images={initialTask?.images || []}
             pending={pendingImages}
@@ -394,7 +419,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           />
           {imageError && <p role="alert" className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-2">{imageError}</p>}
 
-          {/* Collapsible Section: Observações internas e checklist (Print 2 style) */}
+          </div>}
+          {formTab === 'extra' && <div className="space-y-3">
+          {/* Checklist and references */}
           <div className="border-t border-slate-100 pt-3">
             <button
               type="button"
@@ -499,8 +526,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             )}
           </div>
 
+          </div>}
+          </div>
+
           {/* RELACIONA MODAL FOOTER */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <div className="pt-3 mt-auto border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
