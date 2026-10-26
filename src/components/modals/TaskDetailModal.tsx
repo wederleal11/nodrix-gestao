@@ -26,6 +26,7 @@ import { TaskAvatar, ProjectPill, DeadlinePill, resolveTaskAssignee } from '../t
 import { TaskActivityPanel } from '../tasks/TaskActivityPanel';
 import { TaskQuickActivity } from '../tasks/TaskQuickActivity';
 import { TaskChecklistPanel } from '../tasks/TaskChecklistPanel';
+import { effectiveTaskLinks } from '../../utils/projectLinks';
 import { deleteTaskImageBlob, formatTaskImageError, MAX_TASK_IMAGES, uploadTaskImage, validateTaskImage } from '../../services/taskImages';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -144,6 +145,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const overdue = isOverdue(task.deadline, task.status);
   const assignee = resolveTaskAssignee(users, task.assigneeId, task.assigneeName);
+  const parentProject = projects.find((p) => p.id === task.projectId);
+  const visibleLinks = effectiveTaskLinks(task, parentProject);
   const checklist = task.checklist || [];
   const pendingCount = (task.activity || []).filter((item) => item.kind === 'pending' && !item.resolved).length;
   const isAssignee = activeProfile?.uid === task.assigneeId;
@@ -350,15 +353,15 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 <TaskAvatar user={assignee} name={task.assigneeName} />{task.assigneeName || 'Não atribuído'}
               </span>
               <span className="rounded bg-slate-800 px-2 py-1 text-[10px] font-semibold text-slate-200">{task.status.replace(/_/g,' ')}</span>
-              {(task.links || []).slice(0, 2).map((link, index) => {
+              {visibleLinks.slice(0, 2).map((link, index) => {
                 const validUrl = /^https?:\/\//i.test(link.url);
                 return validUrl ? <a key={index} href={link.url} target="_blank" rel="noopener noreferrer"
                   title={link.title} className="inline-flex max-w-[170px] items-center gap-1 truncate rounded border border-slate-600 px-2 py-1 text-[11px] text-cyan-200 hover:bg-slate-700">
                     <ExternalLink className="w-3 h-3 shrink-0"/><span className="truncate">{link.title}</span>
                   </a> : null;
               })}
-              {(task.links?.length || 0) > 2 && <button type="button" onClick={()=>setDetailTab('links')}
-                className="text-[11px] text-cyan-200 font-bold hover:underline">+{task.links!.length-2} referências</button>}
+              {visibleLinks.length > 2 && <button type="button" onClick={()=>setDetailTab('links')}
+                className="text-[11px] text-cyan-200 font-bold hover:underline">+{visibleLinks.length - 2} referências</button>}
             </div>
           </div>
 
@@ -409,7 +412,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               ['summary', 'Resumo'],
               ['activity', `Acompanhamento${pendingCount ? ` (${pendingCount})` : ''}`],
               ['images', `Imagens (${task.images?.length || 0})`],
-              ['links', `Referências (${task.links?.length || 0})`],
+              ['links', `Referências (${visibleLinks.length})`],
             ] as const).map(([tab, label]) => <button key={tab} role="tab" aria-selected={detailTab === tab} type="button" onClick={() => setDetailTab(tab)}
               className={`rounded-md px-3 py-2 text-[11px] font-bold transition-colors ${detailTab === tab ? 'bg-[#004e9a] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               {label}
@@ -528,11 +531,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </div>}
             {detailTab === 'links' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {(task.links || []).map((link,i) => <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
+                {visibleLinks.map((link,i) => <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-3 text-xs font-semibold text-blue-700 hover:border-blue-400 hover:bg-blue-50">
                     <span className="truncate">{link.title}</span><ExternalLink className="w-4 h-4 shrink-0" />
                   </a>)}
-                {!task.links?.length && <p className="text-xs text-slate-500">Nenhum link cadastrado. Edite a demanda para adicionar referências.</p>}
+                {!visibleLinks.length && <p className="text-xs text-slate-500">Nenhum link cadastrado. Edite o projeto para definir o link principal ou a demanda para incluir referências específicas.</p>}
+                {parentProject?.primaryLink && <p className="col-span-full text-[11px] text-slate-500">O link principal é administrado em Projetos → Editar projeto.</p>}
               </div>
             )}
           </div>

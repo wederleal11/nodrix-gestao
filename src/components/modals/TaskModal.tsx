@@ -38,7 +38,13 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [deadline, setDeadline] = useState(initialTask?.deadline || '');
   const [checklist, setChecklist] = useState<ChecklistItem[]>(initialTask?.checklist || []);
   const [newChecklistText, setNewChecklistText] = useState('');
-  const [links, setLinks] = useState<TaskLink[]>(initialTask?.links || []);
+  const assignedProject = projects.find((project) =>
+    project.id === (initialTask?.projectId || defaultProjectId || projects[0]?.id));
+  const [links, setLinks] = useState<TaskLink[]>(() =>
+    (initialTask?.links || []).filter((link) =>
+      !(assignedProject?.primaryLink !== undefined && assignedProject?.primaryLinkLegacyTitle &&
+        link.title.trim().toLowerCase() === assignedProject.primaryLinkLegacyTitle.trim().toLowerCase()),
+    ));
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -479,8 +485,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
                 {/* Links */}
                 <div className="pt-2 border-t border-slate-200">
+                  {projects.find((project) => project.id === projectId)?.primaryLink && (
+                    <p className="mb-2 text-[11px] text-blue-700">
+                      O link principal do projeto é editado em <strong>Projetos → Editar projeto</strong>,
+                      não nesta demanda.
+                    </p>
+                  )}
                   <span className="font-semibold text-slate-700 text-xs block mb-1.5">
-                    Links e referências ({links.length})
+                    Referências específicas da demanda ({links.length})
                   </span>
                   <div className="space-y-1.5 mb-2">
                     {links.map((link, idx) => (

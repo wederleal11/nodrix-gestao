@@ -6,6 +6,8 @@ import {
   Archive,
   RotateCcw,
   Trash2,
+  ExternalLink,
+  Link2,
 } from 'lucide-react';
 import type { Project, Task, UserProfile } from '../../types';
 import { formatProjectWriteError, toggleArchiveProject } from '../../services/db';
@@ -13,6 +15,7 @@ import { ProjectStatusSelect } from '../projects/ProjectStatusSelect';
 import { ProjectDeleteDialog } from '../projects/ProjectDeleteDialog';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateBR } from '../../utils/formatters';
+import { isSafeWebLink } from '../../utils/projectLinks';
 
 interface ProjectDetailModalProps {
   project: Project | null;
@@ -162,6 +165,29 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
           <p className="text-slate-700 text-xs leading-relaxed">
             {project.description || 'Sem descrição cadastrada.'}
           </p>
+
+          {/* Project-level link controls the reference in every linked task. */}
+          {project.primaryLink && isSafeWebLink(project.primaryLink) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <Link2 className="h-4 w-4 shrink-0 text-blue-700" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase text-blue-700">Link principal do projeto</p>
+                  <p className="font-semibold text-slate-800 truncate">{project.primaryLink.title}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a href={project.primaryLink.url} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-blue-700 hover:bg-blue-100">
+                  Abrir <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+                {isAdmin && <button type="button" onClick={() => { onClose(); onEdit(project); }}
+                  className="rounded-md bg-blue-700 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-blue-800">
+                  Editar link
+                </button>}
+              </div>
+            </div>
+          )}
 
           {/* Proven Progress Bar */}
           <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
