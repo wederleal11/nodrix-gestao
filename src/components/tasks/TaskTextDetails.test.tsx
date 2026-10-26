@@ -11,7 +11,7 @@ test('every shortened demand text exposes a visible Ver mais button', () => {
       value: 'Uma primeira linha importante.\n'.repeat(15),
       onExpand: () => {},
     }));
-    assert.match(html, />Ver mais</);
+    assert.match(html, / Ver mais<\/button>/);
     assert.match(html, /aria-label="Ver texto completo:/);
     assert.match(html, /line-clamp-/);
     assert.match(html, /Uma primeira linha importante/);
