@@ -97,7 +97,7 @@ export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
       alert('Por segurança, administradores não podem ser excluídos diretamente.');
       return;
     }
-    if (window.confirm(`Tem certeza que deseja excluir permanentemente o cadastro de ${user.name}?`)) {
+    if (window.confirm(`Remover o acesso de ${user.name}? O cadastro será desativado; a identidade Google continuará existente.`)) {
       try {
         await deleteUser(user.uid);
       } catch (err) {
@@ -355,7 +355,7 @@ export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
                                     type="button"
                                     onClick={() => handleDeleteUser(user)}
                                     className="p-1.5 text-slate-400 hover:text-red-600 rounded hover:bg-slate-100 cursor-pointer transition-colors"
-                                    title="Excluir usuário"
+                                    title="Remover acesso (desativar cadastro)"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>

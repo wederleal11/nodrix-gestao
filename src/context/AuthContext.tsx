@@ -9,9 +9,9 @@ import { auth, googleAuthProvider, testConnection } from '../lib/firebase';
 import {
   getUserProfile,
   upsertUserProfile,
-  seedInitialNodrixData,
   INITIAL_ADMIN_EMAIL,
   subscribeUsers,
+  subscribeCurrentUser,
 } from '../services/db';
 import type { UserProfile, UserRole } from '../types';
 
@@ -111,17 +111,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setProfile(userProf);
           setActiveUserId(userProf.uid);
 
-          // Initial data are optional and must NEVER block a successful Google sign-in.
-          if (isInitialAdmin) {
-            void seedInitialNodrixData({
-              id: userProf.uid,
-              name: userProf.name,
-              email: userProf.email,
-            }).catch((error) => {
-              console.error('Initial Nodrix data sync failed:', error);
-              setAuthError('Login concluído; a sincronização dos dados iniciais falhou. Os demais módulos continuam acessíveis.');
-            });
-          }
+          // Initial sample data are managed explicitly in Settings.
+          // Auto-seeding at every sign-in resurrects intentionally removed users/projects.
         } catch (e) {
           console.error('Error loading user profile:', e);
           setProfile(null);
@@ -141,6 +132,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribe();
   }, []);
+
+  // Session roles and disabled status must react to changes made by another admin.
+  useEffect(() => {
+    if (!firebaseUser || !profile || firebaseUser.uid !== profile.uid) return;
+    return subscribeCurrentUser(firebaseUser.uid, (latest) => {
+      if (latest) setProfile(latest);
+      else setProfile(null);
+    }, (error) => {
+      console.error('Current user permission synchronization failed:', error.code);
+      setAuthError('Não foi possível sincronizar as permissões da sua conta.');
+    });
+  }, [firebaseUser?.uid, profile?.uid]);
 
   const activeProfile = useMemo(() => {
     if (!activeUserId) return profile;

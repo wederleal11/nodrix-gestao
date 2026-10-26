@@ -140,10 +140,28 @@ export function subscribeUsers(onUpdate: (users: UserProfile[]) => void, onError
 export async function deleteUser(uid: string): Promise<void> {
   const path = `users/${uid}`;
   try {
-    await deleteDoc(doc(db, 'users', uid));
+    // Keep a tombstone so a returning Firebase Auth account is not silently
+    // created as an active user again. Firebase Authentication deletion needs
+    // an Admin SDK operation and must not be impersonated by the frontend.
+    await updateDoc(doc(db, 'users', uid), {
+      status: 'inactive',
+      updatedAt: new Date().toISOString(),
+    });
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    handleFirestoreError(error, OperationType.UPDATE, path);
   }
+}
+
+export function subscribeCurrentUser(
+  uid: string,
+  onUpdate: (profile: UserProfile | null) => void,
+  onError?: SubscriptionErrorHandler,
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, 'users', uid),
+    (snapshot) => onUpdate(snapshot.exists() ? snapshot.data() as UserProfile : null),
+    (err) => reportFirestoreSubscriptionError(`users/${uid}`, err, onError),
+  );
 }
 
 // ==========================================

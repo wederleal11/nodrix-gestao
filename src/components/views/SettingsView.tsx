@@ -164,7 +164,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       alert('Por segurança, o Super Admin não pode ser excluído.');
       return;
     }
-    if (window.confirm(`Tem certeza que deseja excluir o cadastro de ${user.name}?`)) {
+    if (window.confirm(`Remover o acesso de ${user.name}? O cadastro será desativado e preservado para auditoria. A conta Google não será apagada.`)) {
       try {
         await deleteUser(user.uid);
       } catch {
@@ -532,7 +532,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                         type="button"
                                         onClick={() => handleDeleteUser(user)}
                                         className="p-1.5 text-slate-400 hover:text-red-600 rounded hover:bg-slate-100 cursor-pointer transition-colors"
-                                        title="Excluir usuário"
+                                        title="Remover acesso (desativar cadastro, sem excluir a conta Google)"
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
