@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CheckCircle2, ClipboardCopy, Download, FileJson, FileSpreadsheet, UploadCloud, X } from 'lucide-react';
 import type { Project, Task, UserProfile } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { importTasksBatch, parseImportInput, previewTaskImport, type ImportPreview } from '../../services/taskImport';
+import { detectTaskImportFormat, importTasksBatch, parseImportInput, previewTaskImport, type ImportPreview } from '../../services/taskImport';
 
 const example = JSON.stringify([
   {titulo:'Conferir integração API',projeto:'Nolasco',responsavel:'bruno@nodrix.com.br',prioridade:'P1',
@@ -27,17 +27,25 @@ export const TaskBulkImportModal: React.FC<{
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
   const [completed,setCompleted]=useState<number|null>(null);
+  const setInput = (value: string, fallback?: 'json'|'csv') => {
+    setSource(value);
+    setFormat(value.trim() ? detectTaskImportFormat(value) : fallback || 'csv');
+    setPreview(null);
+    setError('');
+    setCompleted(null);
+  };
   const load = async (file:File) => {
     setError('');setPreview(null);
     if(file.size>200_000){setError('Arquivo acima de 200 KB. Divida em lotes de até 100 tarefas.');return;}
-    try{const value=await file.text();setSource(value);setFormat(file.name.toLowerCase().endsWith('.json')?'json':'csv');}
+    try{const value=await file.text();setInput(value,file.name.toLowerCase().endsWith('.json')?'json':'csv');}
     catch{setError('Não foi possível ler o arquivo.');}
   };
   const check=()=>{
     if(!profile||!isAdmin){setError('Somente administradores podem importar.');return;}
     setError('');setPreview(null);setCompleted(null);
     try{
-      const parsed=parseImportInput(source,format);
+      const parsed=parseImportInput(source,detectTaskImportFormat(source));
+      setFormat(detectTaskImportFormat(source));
       setPreview(previewTaskImport(parsed,projects,users,tasks,profile.uid));
     }catch(e){setError(e instanceof Error ? e.message:'Dados inválidos.');}
   };
@@ -47,8 +55,9 @@ export const TaskBulkImportModal: React.FC<{
     try{
       await importTasksBatch(preview.rows,profile);
       setCompleted(preview.rows.length);setPreview(null);
-    }catch{
-      setError('Não foi possível gravar o lote. Confirme sua permissão e conexão; nenhuma linha foi marcada como importada.');
+    }catch(e){
+      setError(e instanceof Error ? e.message : 'Não foi possível confirmar a importação. Confira a conexão e valide novamente.');
+      setPreview(null);
     }finally{setSaving(false);}
   };
   return <div role="dialog" aria-modal="true" aria-label="Importar demandas em massa"
@@ -62,11 +71,11 @@ export const TaskBulkImportModal: React.FC<{
       <div className="p-5 space-y-3 text-xs">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <button onClick={()=>{setFormat('csv');setSource('');setPreview(null);}}
+            <button onClick={()=>{if(!source.trim())setFormat('csv');else setFormat(detectTaskImportFormat(source));}}
               className={`px-3 py-2 rounded-md font-bold flex items-center gap-1.5 ${format==='csv'?'bg-blue-700 text-white':'bg-slate-100 text-slate-600'}`}>
               <FileSpreadsheet className="w-4 h-4" /> CSV
             </button>
-            <button onClick={()=>{setFormat('json');setSource('');setPreview(null);}}
+            <button onClick={()=>{if(!source.trim())setFormat('json');else setFormat(detectTaskImportFormat(source));}}
               className={`px-3 py-2 rounded-md font-bold flex items-center gap-1.5 ${format==='json'?'bg-blue-700 text-white':'bg-slate-100 text-slate-600'}`}>
               <FileJson className="w-4 h-4" /> JSON
             </button>
@@ -74,7 +83,7 @@ export const TaskBulkImportModal: React.FC<{
           <div className="flex items-center gap-2">
             {format==='csv' ? <button type="button" onClick={downloadCsv} className="text-blue-700 font-bold flex items-center gap-1">
               <Download className="w-4 h-4" /> Baixar modelo CSV</button> :
-              <button type="button" onClick={()=>{void navigator.clipboard.writeText(example).catch(()=>setSource(example));}}
+              <button type="button" onClick={()=>{void navigator.clipboard.writeText(example).catch(()=>setInput(example,'json'));}}
                 className="text-blue-700 font-bold flex items-center gap-1"><ClipboardCopy className="w-4 h-4" /> Copiar exemplo JSON</button>}
           </div>
         </div>
@@ -85,16 +94,20 @@ export const TaskBulkImportModal: React.FC<{
         </label>
         <label htmlFor="task-import-source" className="font-semibold text-slate-700 block">Ou cole o conteúdo {format.toUpperCase()}:</label>
         <textarea id="task-import-source" rows={6} spellCheck={false} value={source}
-          onChange={(e)=>{setSource(e.target.value);setPreview(null);setCompleted(null);}}
+          onChange={(e)=>setInput(e.target.value,format)}
           placeholder={format==='json'?example:csvExample}
           className="w-full resize-none rounded-md border border-slate-300 px-3 py-2 font-mono text-[11px] text-slate-900 focus:outline-none focus:border-blue-500" />
+        {source.trim() && <div role="status" className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] font-semibold text-blue-800">
+          Formato detectado automaticamente: {format.toUpperCase()}. O importador identifica JSON mesmo quando CSV está selecionado.
+        </div>}
         {error && <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-2 text-rose-700 font-medium">{error}</p>}
         {completed!==null && <p role="status" className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-emerald-800 font-bold flex items-center gap-1.5">
           <CheckCircle2 className="w-4 h-4" /> {completed} demandas importadas com sucesso. O Kanban será atualizado automaticamente.</p>}
         {preview && <div className="rounded-lg border border-slate-200 p-3 space-y-2">
           <strong className="block text-slate-800">Prévia: {preview.rows.length} válidas · {preview.errors.length} erros</strong>
-          {preview.errors.slice(0,5).map((e,i)=><p key={i} className="text-rose-700">• {e}</p>)}
-          {preview.errors.length>5 && <p className="font-bold text-rose-700">Mais {preview.errors.length-5} erros. Corrija o arquivo antes de importar.</p>}
+          {preview.errors.length > 0 && <div className="max-h-40 overflow-y-auto rounded-md bg-rose-50 p-2 space-y-1" role="alert">
+            {preview.errors.map((e,i)=><p key={i} className="text-rose-700">• {e}</p>)}
+          </div>
           {preview.errors.length===0 && preview.rows.slice(0,4).map((row)=>(
             <p key={row.id} className="flex gap-2 justify-between border-b border-slate-100 pb-1 text-slate-700">
               <span className="truncate font-semibold">{row.title}</span><span className="shrink-0 text-slate-500">{row.projectName} • {row.priority}</span>
