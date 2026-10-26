@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Plus, Trash2, ChevronRight, ChevronDown } from 'lucide-react';
 import type { Task, Project, UserProfile, PriorityLevel, TaskStatus, ChecklistItem, TaskLink } from '../../types';
 import { saveTask } from '../../services/db';
 import { useAuth } from '../../context/AuthContext';
+import { TaskImages, type PendingTaskImage } from '../tasks/TaskImages';
+import { deleteTaskImageBlob, formatTaskImageError, MAX_TASK_IMAGES, uploadTaskImage, validateTaskImage } from '../../services/taskImages';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -21,7 +23,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   initialTask,
   defaultProjectId,
 }) => {
-  const { activeProfile } = useAuth();
+  const { profile } = useAuth();
 
   const [projectId, setProjectId] = useState(
     initialTask?.projectId || defaultProjectId || (projects[0]?.id || '')
@@ -41,6 +43,49 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingImages, setPendingImages] = useState<PendingTaskImage[]>([]);
+  const [imageError, setImageError] = useState('');
+  const pendingRef = useRef<PendingTaskImage[]>([]);
+  useEffect(() => { pendingRef.current = pendingImages; }, [pendingImages]);
+  useEffect(() => () => {
+    pendingRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl));
+  }, []);
+
+  const queueImages = (files: File[]) => {
+    setImageError('');
+    const accepted: PendingTaskImage[] = [];
+    for (const file of files) {
+      const invalid = validateTaskImage(file);
+      if (invalid) { setImageError(invalid); continue; }
+      if ((initialTask?.images?.length || 0) + pendingRef.current.length + accepted.length >= MAX_TASK_IMAGES) {
+        setImageError(`Limite de ${MAX_TASK_IMAGES} imagens por demanda.`);
+        break;
+      }
+      accepted.push({ id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) });
+    }
+    if (accepted.length) {
+      pendingRef.current = [...pendingRef.current, ...accepted];
+      setPendingImages(pendingRef.current);
+    }
+  };
+
+  const removePendingImage = (id: string) => {
+    const removed = pendingRef.current.find((image) => image.id === id);
+    if (removed) URL.revokeObjectURL(removed.previewUrl);
+    pendingRef.current = pendingRef.current.filter((image) => image.id !== id);
+    setPendingImages(pendingRef.current);
+  };
+
+  const onPasteImages = (event: React.ClipboardEvent) => {
+    if (isSubmitting) return;
+    const files = Array.from(event.clipboardData?.items || [])
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile()).filter((file): file is File => file !== null);
+    if (files.length) {
+      event.preventDefault();
+      queueImages(files);
+    }
+  };
 
   // Collapsible section like print 2
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -101,6 +146,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
     const taskId = initialTask?.id || `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const taskData: Task = {
+      ...(initialTask || {}),
       id: taskId,
       projectId,
       projectName: selectedProject?.name || 'Projeto',
@@ -108,40 +154,54 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       description: description.trim(),
       expectedResult: expectedResult.trim(),
       acceptanceCriteria: acceptanceCriteria.trim(),
-      assigneeId: assigneeId || undefined,
-      assigneeName: selectedAssignee?.name || undefined,
+      assigneeId,
+      assigneeName: selectedAssignee?.name || '',
       priority,
       status: initialTask?.status || status,
-      deadline: deadline || undefined,
+      deadline,
       checklist,
       links,
-      createdById: initialTask?.createdById || activeProfile?.uid || 'system',
+      images: initialTask?.images || [],
+      createdById: initialTask?.createdById || profile?.uid || 'system',
       createdAt: initialTask?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
+    if (!profile || profile.status !== 'active') {
+      setErrorMessage('Entre com uma conta ativa para salvar a demanda.');
+      return;
+    }
+
+    const uploadedImages: Task['images'] = [];
+    let saved = false;
     try {
       setIsSubmitting(true);
+      // Upload before saving: the task is never created with a partial image list.
+      for (const pending of pendingRef.current) {
+        const uploaded = await uploadTaskImage(taskId, pending.file, profile.uid);
+        uploadedImages.push(uploaded);
+      }
       await saveTask(
-        taskData,
-        {
-          id: activeProfile?.uid || 'anonymous',
-          name: activeProfile?.name || 'Usuário',
-          email: activeProfile?.email || '',
-        },
+        { ...taskData, images: [...(initialTask?.images || []), ...uploadedImages] },
+        { id: profile.uid, name: profile.name, email: profile.email },
         !initialTask
       );
+      saved = true;
       onClose();
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Falha ao salvar a demanda.');
+      setErrorMessage(formatTaskImageError(err));
     } finally {
+      // Reclaim newly uploaded objects when Firestore refused the write.
+      if (!saved && uploadedImages.length) {
+        await Promise.allSettled(uploadedImages.map((image) => deleteTaskImageBlob(image)));
+      }
       setIsSubmitting(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl my-6 overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl my-6 max-h-[92vh] overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
         {/* RELACIONA DARK NAVY HEADER */}
         <div className="bg-[#0e213e] text-white px-6 py-4 flex items-start justify-between">
           <div>
@@ -155,6 +215,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           <button
             type="button"
             onClick={onClose}
+            disabled={isSubmitting}
             className="text-slate-300 hover:text-white transition-colors cursor-pointer p-1"
           >
             <X className="w-5 h-5" />
@@ -162,7 +223,17 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         </div>
 
         {/* FORM BODY */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 bg-white text-xs">
+        <form
+          onSubmit={handleSubmit}
+          onPaste={onPasteImages}
+          onDragOver={(event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); }}
+          onDrop={(event) => {
+            if (event.defaultPrevented || !event.dataTransfer.files.length) return;
+            event.preventDefault();
+            queueImages(Array.from(event.dataTransfer.files));
+          }}
+          className="p-6 space-y-4 bg-white text-xs overflow-y-auto"
+        >
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg font-medium text-xs">
               {errorMessage}
@@ -312,6 +383,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
           </div>
 
+          <TaskImages
+            images={initialTask?.images || []}
+            pending={pendingImages}
+            onFiles={queueImages}
+            onRemovePending={removePendingImage}
+            disabled={isSubmitting}
+            busy={isSubmitting && pendingImages.length > 0}
+          />
+          {imageError && <p role="alert" className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-2">{imageError}</p>}
+
           {/* Collapsible Section: Observações internas e checklist (Print 2 style) */}
           <div className="border-t border-slate-100 pt-3">
             <button
@@ -422,6 +503,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             <button
               type="button"
               onClick={onClose}
+              disabled={isSubmitting}
               className="px-5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs transition-colors cursor-pointer"
             >
               Cancelar

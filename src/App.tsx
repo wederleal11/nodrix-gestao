@@ -367,14 +367,17 @@ const MainApp: React.FC = () => {
       </main>
 
       {/* MODALS */}
-      <TaskModal
-        isOpen={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
-        projects={projects}
-        users={allUsers}
-        initialTask={editingTask}
-        defaultProjectId={defaultTaskProjectId}
-      />
+      {isTaskModalOpen && (
+        <TaskModal
+          key={editingTask?.id || `new-task-${defaultTaskProjectId}`}
+          isOpen
+          onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }}
+          projects={projects}
+          users={allUsers}
+          initialTask={editingTask}
+          defaultProjectId={defaultTaskProjectId}
+        />
+      )}
 
       <TaskDetailModal
         task={inspectingTask}
