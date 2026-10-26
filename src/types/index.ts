@@ -73,6 +73,18 @@ export interface TaskLink {
   url: string;
 }
 
+export interface TaskActivity {
+  id: string;
+  kind: 'observation' | 'pending';
+  text: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+  resolved: boolean;
+  resolvedBy?: string;
+  resolvedAt?: string;
+}
+
 export interface TaskImage {
   id: string;
   name: string;
@@ -100,6 +112,7 @@ export interface Task {
   checklist?: ChecklistItem[];
   links?: TaskLink[];
   images?: TaskImage[];
+  activity?: TaskActivity[];
   dependencies?: string;
   
   // Blocker details

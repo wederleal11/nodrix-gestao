@@ -25,6 +25,7 @@ import type {
   ProjectStatus,
   Task,
   TaskImage,
+  TaskActivity,
   UserProfile,
   WeeklyEvent,
   DailyCheckin,
@@ -441,6 +442,41 @@ export async function saveTask(
 }
 
 /** Atomic field-level additions prevent attachment uploads from overwriting task workflow changes. */
+export async function addTaskActivity(taskId: string, item: TaskActivity): Promise<void> {
+  const path = `tasks/${taskId}`;
+  try {
+    await updateDoc(doc(db, 'tasks', taskId), {
+      activity: arrayUnion(item),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function resolveTaskPending(taskId: string, itemId: string, actorId: string): Promise<void> {
+  const path = `tasks/${taskId}`;
+  try {
+    await runTransaction(db, async (tx) => {
+      const taskRef = doc(db, 'tasks', taskId);
+      const snap = await tx.get(taskRef);
+      if (!snap.exists()) throw new Error('Esta demanda não existe mais.');
+      const activity: TaskActivity[] = snap.data().activity || [];
+      const index = activity.findIndex((item) => item.id === itemId && item.kind === 'pending');
+      if (index < 0) throw new Error('Pendência não encontrada. Atualize a demanda.');
+      if (activity[index].resolved) return;
+      tx.update(taskRef, {
+        activity: activity.map((item, i) => i === index
+          ? { ...item, resolved: true, resolvedBy: actorId, resolvedAt: new Date().toISOString() }
+          : item),
+        updatedAt: new Date().toISOString(),
+      });
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
 export async function attachTaskImage(taskId: string, image: TaskImage): Promise<void> {
   const path = `tasks/${taskId}`;
   try {
