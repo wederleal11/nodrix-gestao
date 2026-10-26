@@ -366,7 +366,6 @@ export const TasksView: React.FC<TasksViewProps> = ({
                             <h4 className="font-bold text-xs text-slate-900 leading-snug line-clamp-2">
                               {t.title}
                             </h4>
-                            <div className="mt-1"><ProjectPill id={t.projectId} name={t.projectName} /></div>
                           </div>
                         </div>
 
@@ -383,10 +382,10 @@ export const TasksView: React.FC<TasksViewProps> = ({
                           )}
                         </div>
 
-                        {/* Bottom: Priority & HIGH-CONTRAST HIGHLIGHTED DEADLINE (Destaque do Prazo) */}
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[10px] pl-5">
+                        {/* Single line: priority | truncated project | prominent deadline */}
+                        <div className="flex items-center gap-1.5 min-w-0 pt-2 border-t border-slate-100 text-[10px] pl-5">
                           <span
-                            className={`px-1.5 py-0.5 font-extrabold rounded ${
+                            className={`shrink-0 px-1.5 py-0.5 font-extrabold rounded ${
                               t.priority === 'P0'
                                 ? 'bg-red-600 text-white'
                                 : t.priority === 'P1'
@@ -396,11 +395,13 @@ export const TasksView: React.FC<TasksViewProps> = ({
                           >
                             {t.priority}
                           </span>
-
-                          {/* DESTACADO: PRAZO VISÍVEL, CLARO E NUNCA APAGADO */}
+                          <div className="min-w-0 flex-1 overflow-hidden" title={t.projectName}>
+                            <ProjectPill id={t.projectId} name={t.projectName} />
+                          </div>
+                          {/* Keep deadline readable: only the project name may truncate. */}
                           {t.deadline ? (
                             <div
-                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold shadow-2xs border ${
+                              className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold shadow-2xs border ${
                                 late
                                   ? 'bg-red-600 text-white border-red-700'
                                   : 'bg-slate-100 text-slate-900 border-slate-300'
@@ -416,7 +417,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                               )}
                             </div>
                           ) : (
-                            <span className="text-[10px] text-slate-400 italic">Sem prazo</span>
+                            <span className="shrink-0 text-[10px] text-slate-500 italic">Sem prazo</span>
                           )}
                         </div>
                       </div>
