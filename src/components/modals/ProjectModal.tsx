@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, ChevronDown, ChevronRight } from 'lucide-react';
 import type { Project, ProjectStatus, PriorityLevel, UserProfile } from '../../types';
-import { saveProject } from '../../services/db';
+import { createProjectId, formatProjectWriteError, saveProject } from '../../services/db';
 import { useAuth } from '../../context/AuthContext';
 
 interface ProjectModalProps {
@@ -17,12 +17,12 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   users,
   initialProject,
 }) => {
-  const { activeProfile } = useAuth();
+  const { profile, isAdmin } = useAuth();
 
   const [name, setName] = useState(initialProject?.name || '');
   const [client, setClient] = useState(initialProject?.client || '');
   const [description, setDescription] = useState(initialProject?.description || '');
-  const [leadId, setLeadId] = useState(initialProject?.leadId || activeProfile?.uid || '');
+  const [leadId, setLeadId] = useState(initialProject?.leadId || profile?.uid || '');
   const [status, setStatus] = useState<ProjectStatus>(initialProject?.status || 'Ativo');
   const [priority, setPriority] = useState<PriorityLevel>(initialProject?.priority || 'P1');
   const [startDate, setStartDate] = useState(initialProject?.startDate || new Date().toISOString().split('T')[0]);
@@ -35,6 +35,26 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // This modal stays mounted while closed; reset its form on every open/edit switch.
+  useEffect(() => {
+    if (!isOpen) return;
+    setName(initialProject?.name || '');
+    setClient(initialProject?.client || '');
+    setDescription(initialProject?.description || '');
+    setLeadId(initialProject?.leadId || profile?.uid || '');
+    setStatus(initialProject?.status || 'Ativo');
+    setPriority(initialProject?.priority || 'P1');
+    setStartDate(initialProject?.startDate || new Date().toISOString().split('T')[0]);
+    setTargetDate(initialProject?.targetDate || '');
+    setNextMilestone(initialProject?.nextMilestone || '');
+    setCompletionCriteria(initialProject?.completionCriteria || '');
+    setRepoUrl(initialProject?.repoUrl || '');
+    setDocsUrl(initialProject?.docsUrl || '');
+    setShowAdvanced(false);
+    setErrorMessage('');
+    setIsSubmitting(false);
+  }, [isOpen, initialProject, profile?.uid]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,27 +66,33 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       return;
     }
 
-    const leadUser = users.find((u) => u.uid === leadId);
-    const projectId = initialProject?.id || name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    if (!profile || !isAdmin) {
+      setErrorMessage('A criação e a edição completa de projetos exigem perfil gestor.');
+      return;
+    }
+
+    const selectedLeadId = leadId || profile.uid;
+    const leadUser = users.find((u) => u.uid === selectedLeadId);
+    const projectId = initialProject?.id || createProjectId();
 
     const projectData: Project = {
       id: projectId,
       name: name.trim(),
-      client: client.trim() || undefined,
+      client: client.trim(),
       description: description.trim(),
-      leadId: leadId || activeProfile?.uid || '',
-      leadName: leadUser?.name || activeProfile?.name || 'Gestor',
-      memberIds: initialProject?.memberIds || [leadId || activeProfile?.uid || ''],
+      leadId: selectedLeadId,
+      leadName: leadUser?.name || (selectedLeadId === profile.uid ? profile.name : initialProject?.leadName || 'Gestor'),
+      memberIds: Array.from(new Set([...(initialProject?.memberIds || []), selectedLeadId])),
       status,
       priority,
       startDate,
       targetDate,
       nextMilestone: nextMilestone.trim(),
       completionCriteria: completionCriteria.trim(),
-      repoUrl: repoUrl.trim() || undefined,
-      docsUrl: docsUrl.trim() || undefined,
+      repoUrl: repoUrl.trim(),
+      docsUrl: docsUrl.trim(),
       isArchived: initialProject?.isArchived || false,
-      createdById: initialProject?.createdById || activeProfile?.uid || '',
+      createdById: initialProject?.createdById || profile.uid,
       createdAt: initialProject?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -76,15 +102,15 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       await saveProject(
         projectData,
         {
-          id: activeProfile?.uid || '',
-          name: activeProfile?.name || '',
-          email: activeProfile?.email || '',
+          id: profile.uid,
+          name: profile.name,
+          email: profile.email,
         },
         !initialProject
       );
       onClose();
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Falha ao salvar projeto.');
+      setErrorMessage(formatProjectWriteError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -188,6 +214,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               </label>
               <select
                 value={status}
+                disabled={initialProject?.isArchived}
                 onChange={(e) => setStatus(e.target.value as ProjectStatus)}
                 className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white cursor-pointer"
               >
@@ -196,6 +223,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                 <option value="Bloqueado">Bloqueado</option>
                 <option value="Em validação">Em validação</option>
                 <option value="Concluído">Concluído</option>
+                {initialProject?.isArchived && <option value="Arquivado">Arquivado</option>}
               </select>
             </div>
 

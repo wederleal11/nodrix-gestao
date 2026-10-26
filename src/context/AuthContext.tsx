@@ -142,17 +142,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [activeUserId, profile, allUsers]);
 
   const isSuperAdmin = useMemo(() => {
-    if (!activeProfile) return false;
+    // Perspective selection changes dashboards, never the signed-in user's permissions.
+    if (!profile) return false;
     return (
-      activeProfile.email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase() ||
-      activeProfile.isSuperAdmin === true
+      profile.email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase() ||
+      profile.isSuperAdmin === true
     );
-  }, [activeProfile]);
+  }, [profile]);
 
   const isAdmin = useMemo(() => {
-    if (!activeProfile) return false;
-    return activeProfile.role === 'admin' || isSuperAdmin;
-  }, [activeProfile, isSuperAdmin]);
+    if (!profile) return false;
+    return profile.role === 'admin' || isSuperAdmin;
+  }, [profile, isSuperAdmin]);
 
   const signInWithGoogle = async () => {
     try {

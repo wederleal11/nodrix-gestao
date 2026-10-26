@@ -88,7 +88,11 @@ const MainApp: React.FC = () => {
       setDataError(`Falha ao sincronizar informações do Firestore (${error.code || 'erro desconhecido'}). Confira as permissões do banco e tente novamente.`);
     };
 
-    const unsubProjects = subscribeProjects((data) => setProjects(data), onSubscriptionError);
+    const unsubProjects = subscribeProjects((data) => {
+      setProjects(data);
+      // Keep the open detail modal in sync after status and other project changes.
+      setInspectingProject((prev) => (prev ? data.find((p) => p.id === prev.id) || null : null));
+    }, onSubscriptionError);
     const unsubTasks = subscribeTasks((data) => {
       setTasks(data);
       setInspectingTask((prev) => (prev ? data.find((t) => t.id === prev.id) || null : null));

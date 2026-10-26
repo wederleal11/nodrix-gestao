@@ -16,6 +16,7 @@ import {
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import type {
   Project,
+  ProjectStatus,
   Task,
   UserProfile,
   WeeklyEvent,
@@ -146,6 +147,62 @@ export async function deleteUser(uid: string): Promise<void> {
 // ==========================================
 // PROJECTS
 // ==========================================
+// Firestore-generated IDs avoid collisions with existing project names and seeded records.
+export function createProjectId(): string {
+  return doc(collection(db, 'projects')).id;
+}
+
+export function formatProjectWriteError(error: unknown): string {
+  let detail = error instanceof Error ? error.message : String(error);
+  try {
+    const parsed = JSON.parse(detail) as { error?: string };
+    detail = parsed.error || detail;
+  } catch {
+    // Native Firebase errors are already plain text.
+  }
+  if (/permission-denied|missing or insufficient permissions/i.test(detail)) {
+    return 'Sua conta não tem permissão para fazer esta alteração. Entre com um perfil gestor ou verifique sua participação no projeto.';
+  }
+  if (/unavailable|offline|network|deadline-exceeded/i.test(detail)) {
+    return 'Não foi possível acessar o banco agora. Verifique sua conexão e tente novamente; a alteração não foi confirmada.';
+  }
+  if (/undefined|invalid data|invalid argument/i.test(detail)) {
+    return 'Há um campo inválido no projeto. Confira as informações preenchidas e tente novamente.';
+  }
+  return 'Não foi possível salvar a alteração. Tente novamente e, se continuar, informe o gestor.';
+}
+
+export async function updateProjectStatus(
+  project: Project,
+  status: ProjectStatus,
+  actor: { id: string; name: string; email: string },
+): Promise<void> {
+  if (project.isArchived || project.status === 'Arquivado') {
+    throw new Error('Reative o projeto antes de alterar seu status.');
+  }
+  if (!(['Planejamento', 'Ativo', 'Bloqueado', 'Em validação', 'Concluído'] as string[]).includes(status)) {
+    throw new Error('Status de projeto inválido.');
+  }
+  if (project.status === status) return;
+  const path = `projects/${project.id}`;
+  try {
+    // Narrow write: members are permitted to update only status + updatedAt.
+    await updateDoc(doc(db, 'projects', project.id), {
+      status,
+      updatedAt: new Date().toISOString(),
+    });
+    await logAuditEvent({
+      action: 'Alteração de Status do Projeto',
+      actorId: actor.id,
+      actorName: actor.name,
+      actorEmail: actor.email,
+      projectId: project.id,
+      details: `Alterou o status do projeto "${project.name}" de "${project.status}" para "${status}"`,
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
 export function subscribeProjects(onUpdate: (projects: Project[]) => void, onError?: SubscriptionErrorHandler): Unsubscribe {
   const path = 'projects';
   return onSnapshot(
@@ -166,8 +223,12 @@ export async function saveProject(
 ): Promise<void> {
   const path = `projects/${project.id}`;
   try {
+    // Firestore rejects undefined optional fields, even when they are valid in TypeScript.
+    const payload = Object.fromEntries(
+      Object.entries(project).filter(([, value]) => value !== undefined),
+    );
     await setDoc(doc(db, 'projects', project.id), {
-      ...project,
+      ...payload,
       updatedAt: new Date().toISOString(),
     });
     await logAuditEvent({

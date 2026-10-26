@@ -13,7 +13,7 @@ import {
 import type { Project, Task, UserProfile } from '../../types';
 import { formatDateBR } from '../../utils/formatters';
 import { useAuth } from '../../context/AuthContext';
-import { seedInitialNodrixData } from '../../services/db';
+import { ProjectStatusSelect } from '../projects/ProjectStatusSelect';
 
 interface ProjectsViewProps {
   projects: Project[];
@@ -32,7 +32,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   onAddProject,
   onAddTask,
 }) => {
-  const { activeProfile, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -218,19 +218,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                       </td>
 
                       <td className="py-3 px-4">
-                        <span
-                          className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full ${
-                            p.status === 'Concluído'
-                              ? 'bg-[#059669] text-white'
-                              : p.status === 'Ativo'
-                              ? 'bg-[#0066cc] text-white'
-                              : p.status === 'Bloqueado'
-                              ? 'bg-[#dc2626] text-white'
-                              : 'bg-slate-200 text-slate-700'
-                          }`}
-                        >
-                          {p.status}
-                        </span>
+                        <ProjectStatusSelect project={p} />
                       </td>
 
                       <td className="py-3 px-4">

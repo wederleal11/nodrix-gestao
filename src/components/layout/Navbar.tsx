@@ -20,7 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectView,
   users,
 }) => {
-  const { activeProfile, activeUserId, setActiveUserId, signOut, isAdmin, isSuperAdmin } = useAuth();
+  const { profile, activeProfile, activeUserId, setActiveUserId, signOut, isAdmin, isSuperAdmin } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Executive Top Bar Navigation
@@ -83,7 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right: User Switcher & Profile */}
         <div className="flex items-center gap-3 shrink-0">
           {/* Fast Perspective Switcher */}
-          {users.length > 1 && (
+          {isAdmin && users.length > 1 && (
             <div className="hidden lg:flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/60 rounded px-2.5 py-1 text-xs">
               <span className="text-[10px] uppercase font-bold text-slate-400">Visão:</span>
               <select
@@ -110,20 +110,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-2.5 p-1 rounded-md hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <div className="w-8 h-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center font-bold text-xs uppercase text-white overflow-hidden">
-                {activeProfile?.avatarUrl ? (
-                  <img src={activeProfile.avatarUrl} alt={activeProfile.name} className="w-full h-full object-cover" />
+                {profile?.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
                 ) : (
-                  activeProfile?.name?.substring(0, 2) || 'WL'
+                  profile?.name?.substring(0, 2) || 'WL'
                 )}
               </div>
               <div className="text-left hidden md:block leading-tight">
                 <span className="block text-xs font-semibold text-white truncate max-w-[130px]">
-                  {activeProfile?.name || 'Weder Leal'}
+                  {profile?.name || 'Conta'}
                 </span>
                 <span className="block text-[10px] text-cyan-300 font-medium">
                   {isSuperAdmin
                     ? 'Super Admin'
-                    : activeProfile?.role === 'admin'
+                    : profile?.role === 'admin'
                     ? 'Gestor'
                     : 'Colaborador'}
                 </span>
@@ -139,14 +139,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <div className="px-3 py-2 border-b border-slate-100">
                   <p className="font-bold text-slate-900 flex items-center gap-1.5">
-                    {activeProfile?.name}
+                    {profile?.name}
                     {isSuperAdmin && (
                       <span className="text-[9px] bg-purple-100 text-purple-800 px-1.5 py-0.2 rounded font-extrabold uppercase">
                         Super
                       </span>
                     )}
                   </p>
-                  <p className="text-[11px] text-slate-500 truncate">{activeProfile?.email}</p>
+                  <p className="text-[11px] text-slate-500 truncate">{profile?.email}</p>
                 </div>
 
                 <div className="p-1 space-y-0.5">

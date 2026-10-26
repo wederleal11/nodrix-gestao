@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   X,
   Plus,
@@ -7,7 +7,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import type { Project, Task, UserProfile } from '../../types';
-import { toggleArchiveProject } from '../../services/db';
+import { formatProjectWriteError, toggleArchiveProject } from '../../services/db';
+import { ProjectStatusSelect } from '../projects/ProjectStatusSelect';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateBR } from '../../utils/formatters';
 
@@ -30,7 +31,9 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   onOpenTask,
   onAddTask,
 }) => {
-  const { activeProfile, isAdmin } = useAuth();
+  const { profile, isAdmin } = useAuth();
+  const [archiveError, setArchiveError] = useState('');
+  const [isArchiving, setIsArchiving] = useState(false);
 
   if (!project) return null;
 
@@ -46,17 +49,22 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
       : `Arquivar o projeto "${project.name}"?`;
     if (!window.confirm(confirmMsg)) return;
 
-    await toggleArchiveProject(
-      project.id,
-      project.name,
-      !project.isArchived,
-      {
-        id: activeProfile?.uid || '',
-        name: activeProfile?.name || '',
-        email: activeProfile?.email || '',
-      }
-    );
-    onClose();
+    if (!profile || isArchiving) return;
+    setArchiveError('');
+    setIsArchiving(true);
+    try {
+      await toggleArchiveProject(
+        project.id,
+        project.name,
+        !project.isArchived,
+        { id: profile.uid, name: profile.name, email: profile.email }
+      );
+      onClose();
+    } catch (error) {
+      setArchiveError(formatProjectWriteError(error));
+    } finally {
+      setIsArchiving(false);
+    }
   };
 
   return (
@@ -69,9 +77,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
               <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-600 text-white">
                 {project.priority}
               </span>
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-slate-200">
-                {project.status}
-              </span>
+              <ProjectStatusSelect project={project} />
               {project.isArchived && (
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-zinc-600 text-white rounded">
                   ARQUIVADO
@@ -103,6 +109,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                 <button
                   type="button"
                   onClick={handleToggleArchive}
+                  disabled={isArchiving}
                   className="p-1.5 text-slate-300 hover:text-amber-400 rounded hover:bg-slate-800 cursor-pointer transition-colors"
                   title={project.isArchived ? 'Reativar' : 'Arquivar'}
                 >
@@ -122,6 +129,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
 
         {/* MODAL CONTENT */}
         <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1 bg-white">
+          {archiveError && <p role="alert" className="rounded-md bg-rose-50 border border-rose-200 p-3 text-rose-700">{archiveError}</p>}
           {/* Metadata bar */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">
             <div>
