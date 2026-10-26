@@ -1,4 +1,4 @@
-import { collection, doc, getDocsFromServer, query, runTransaction, where } from 'firebase/firestore';
+import { collection, doc, getDocsFromServer, getDocFromServer, query, runTransaction, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { PriorityLevel, Project, Task, TaskStatus, UserProfile } from '../types';
 
@@ -22,7 +22,7 @@ const duplicateKey = (projectId: string, title: string) => `${projectId}|${norma
 
 export function detectTaskImportFormat(source: string): 'json' | 'csv' {
   // BOM and whitespace are common in copied text / exported files.
-  return /^[\\s\\uFEFF]*[\\[{]/.test(source) ? 'json' : 'csv';
+  return /^[\s\uFEFF]*[\[{]/.test(source) ? 'json' : 'csv';
 }
 
 function resolveImportProject(value: string, projects: Project[]): { project?: Project; issue?: string } {
@@ -169,10 +169,10 @@ export async function importTasksBatch(rows:Task[],actor:UserProfile):Promise<vo
   // tasks added while the preview was open, including legacy random document IDs.
   const projectIds = [...new Set(rows.map((row)=>row.projectId))];
   const [projectSnapshots, taskSnapshots] = await Promise.all([
-    Promise.all(projectIds.map((projectId)=>getDocsFromServer(query(collection(db,'projects'),where('__name__','==',projectId))))),
+    Promise.all(projectIds.map((projectId)=>getDocFromServer(doc(db,'projects',projectId)))),
     Promise.all(projectIds.map((projectId)=>getDocsFromServer(query(collection(db,'tasks'),where('projectId','==',projectId))))),
   ]);
-  const liveProjects=new Set(projectSnapshots.flatMap((snap)=>snap.docs).filter((snap)=>!snap.data().isArchived).map((snap)=>snap.id));
+  const liveProjects=new Set(projectSnapshots.filter((snap)=>snap.exists() && !snap.data()?.isArchived).map((snap)=>snap.id));
   for(const row of rows)if(!liveProjects.has(row.projectId))throw Error(`Projeto ${row.projectName} não está mais ativo. Atualize a prévia.`);
   const liveKeys=new Set(taskSnapshots.flatMap((snap)=>snap.docs).map((snap)=>duplicateKey(snap.data().projectId,snap.data().title)));
   const duplicates=rows.filter((row)=>liveKeys.has(duplicateKey(row.projectId,row.title)));
