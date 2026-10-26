@@ -184,7 +184,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       await saveTask(
         { ...taskData, images: [...(initialTask?.images || []), ...uploadedImages] },
         { id: profile.uid, name: profile.name, email: profile.email },
-        !initialTask
+        !initialTask,
+        uploadedImages,
       );
       saved = true;
       onClose();

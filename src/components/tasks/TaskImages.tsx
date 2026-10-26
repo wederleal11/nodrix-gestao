@@ -67,7 +67,7 @@ const TaskImageThumb: React.FC<{
             className="absolute right-5 top-5 rounded bg-white/15 text-white p-2 hover:bg-white/25 cursor-pointer" aria-label="Fechar imagem">
             <X className="w-5 h-5" />
           </button>
-          <img src={src} alt={image.name} className="max-h-[90vh] max-w-full object-contain" />
+          <img src={src} alt={image.name} onClick={(event) => event.stopPropagation()} className="max-h-[90vh] max-w-full object-contain" />
         </div>
       )}
     </>

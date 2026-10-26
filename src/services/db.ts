@@ -12,6 +12,7 @@ import {
   query,
   arrayUnion,
   arrayRemove,
+  runTransaction,
   where,
   orderBy,
   onSnapshot,
@@ -400,16 +401,31 @@ export function subscribeTasks(onUpdate: (tasks: Task[]) => void, onError?: Subs
 export async function saveTask(
   task: Task,
   actor: { id: string; name: string; email: string },
-  isNew: boolean
+  isNew: boolean,
+  newlyUploadedImages: TaskImage[] = [],
 ): Promise<void> {
   const path = `tasks/${task.id}`;
   try {
-    // Firestore rejects undefined fields; edited tasks may contain optional data.
     const safeTask = Object.fromEntries(Object.entries(task).filter(([, value]) => value !== undefined));
-    await setDoc(doc(db, 'tasks', task.id), {
-      ...safeTask,
-      updatedAt: new Date().toISOString(),
-    });
+    const taskRef = doc(db, 'tasks', task.id);
+    if (isNew) {
+      await setDoc(taskRef, { ...safeTask, updatedAt: new Date().toISOString() });
+    } else {
+      // Merge current attachments transactionally: a stale edit or checklist update
+      // must never erase screenshots attached from another session.
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(taskRef);
+        if (!snap.exists()) throw new Error('A demanda não existe mais. Atualize a lista.');
+        const persisted = snap.data() as Task;
+        const currentImages = persisted.images || [];
+        const additions = newlyUploadedImages.filter((image) => !currentImages.some((saved) => saved.id === image.id));
+        transaction.update(taskRef, {
+          ...safeTask,
+          images: [...currentImages, ...additions],
+          updatedAt: new Date().toISOString(),
+        });
+      });
+    }
     await logAuditEvent({
       action: isNew ? 'Criação de Tarefa' : 'Atualização de Tarefa',
       actorId: actor.id,
