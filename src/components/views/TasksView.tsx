@@ -30,7 +30,7 @@ import {
 } from '../../services/db';
 import { useAuth } from '../../context/AuthContext';
 import { KanbanColumnModal } from '../modals/KanbanColumnModal';
-import { TaskAvatar, ProjectPill } from '../tasks/TaskIdentity';
+import { TaskAvatar, ProjectPill, resolveTaskAssignee } from '../tasks/TaskIdentity';
 import { TaskBulkImportModal } from '../modals/TaskBulkImportModal';
 
 interface TasksViewProps {
@@ -373,7 +373,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                         {/* Middle info */}
                         <div className="text-[11px] text-slate-500 space-y-1 pl-5">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <TaskAvatar user={users.find((u) => u.uid === t.assigneeId) || users.find((u) => u.name.toLowerCase() === (t.assigneeName || '').toLowerCase())} name={t.assigneeName} />
+                            <TaskAvatar user={resolveTaskAssignee(users, t.assigneeId, t.assigneeName)} name={t.assigneeName} />
                             <strong className="text-slate-800 truncate">{t.assigneeName || 'Não atribuído'}</strong>
                           </div>
                           {t.expectedResult && (

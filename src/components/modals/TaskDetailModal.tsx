@@ -24,7 +24,7 @@ import {
   detachTaskImage,
 } from '../../services/db';
 import { TaskImages } from '../tasks/TaskImages';
-import { TaskAvatar, ProjectPill, DeadlinePill } from '../tasks/TaskIdentity';
+import { TaskAvatar, ProjectPill, DeadlinePill, resolveTaskAssignee } from '../tasks/TaskIdentity';
 import { TaskActivityPanel } from '../tasks/TaskActivityPanel';
 import { deleteTaskImageBlob, formatTaskImageError, MAX_TASK_IMAGES, uploadTaskImage, validateTaskImage } from '../../services/taskImages';
 import { useAuth } from '../../context/AuthContext';
@@ -143,8 +143,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   if (!task) return null;
 
   const overdue = isOverdue(task.deadline, task.status);
-  const assignee = users.find((u) => u.uid === task.assigneeId)
-    || users.find((u) => u.name.toLowerCase() === (task.assigneeName || '').toLowerCase());
+  const assignee = resolveTaskAssignee(users, task.assigneeId, task.assigneeName);
   const checklist = task.checklist || [];
   const lastCheckPage = Math.max(0, Math.ceil(checklist.length / 4)-1);
   const currentCheckPage = Math.min(checkPage,lastCheckPage);

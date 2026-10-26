@@ -108,6 +108,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
 
+          // Refresh a real signed-in user's Google portrait without modifying
+          // the historical task assignment or impersonating another profile.
+          if (user.photoURL && userProf.avatarUrl !== user.photoURL) {
+            const updatedWithAvatar = { ...userProf, avatarUrl: user.photoURL };
+            try {
+              await upsertUserProfile(updatedWithAvatar);
+              userProf = updatedWithAvatar;
+            } catch {
+              // Photo sync is optional and must not block login.
+            }
+          }
           setProfile(userProf);
           setActiveUserId(userProf.uid);
 

@@ -3,6 +3,14 @@ import { CalendarDays, FolderKanban } from 'lucide-react';
 import type { UserProfile } from '../../types';
 import { formatDateBR, isOverdue } from '../../utils/formatters';
 
+/** Resolve historical placeholder UIDs to the real Google photo through a matching e-mail. */
+export function resolveTaskAssignee(users: UserProfile[], uid?: string, name?: string): UserProfile | undefined {
+  const original = users.find((user) => user.uid === uid)
+    || users.find((user) => user.name.toLowerCase() === (name || '').toLowerCase());
+  if (!original) return undefined;
+  const portrait = users.find((user) => user.email.toLowerCase() === original.email.toLowerCase() && user.avatarUrl);
+  return portrait ? { ...original, avatarUrl: portrait.avatarUrl } : original;
+}
 export const TaskAvatar: React.FC<{
   user?: UserProfile;
   name?: string;
