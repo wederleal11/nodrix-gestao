@@ -85,7 +85,7 @@ export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
         updatedAt: new Date().toISOString(),
       });
     } catch (err) {
-      alert('Erro ao atualizar status do usuário.');
+      alert(formatProjectWriteError(err));
     } finally {
       setIsUpdating(false);
     }
@@ -101,7 +101,7 @@ export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
       try {
         await deleteUser(user.uid);
       } catch (err) {
-        alert('Erro ao excluir usuário.');
+        alert(formatProjectWriteError(err));
       }
     }
   };

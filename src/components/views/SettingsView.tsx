@@ -28,6 +28,7 @@ import type { UserProfile, Project, AuditLog } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import {
   deleteUser,
+  formatProjectWriteError,
   upsertUserProfile,
   subscribeAuditLogs,
   toggleArchiveProject,
@@ -151,8 +152,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         status: nextStatus,
         updatedAt: new Date().toISOString(),
       });
-    } catch {
-      alert('Erro ao atualizar status do usuário.');
+    } catch (error) {
+      alert(formatProjectWriteError(error));
     } finally {
       setIsUpdatingUser(false);
     }
@@ -167,8 +168,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (window.confirm(`Remover o acesso de ${user.name}? O cadastro será desativado e preservado para auditoria. A conta Google não será apagada.`)) {
       try {
         await deleteUser(user.uid);
-      } catch {
-        alert('Erro ao excluir usuário.');
+      } catch (error) {
+        alert(formatProjectWriteError(error));
       }
     }
   };
