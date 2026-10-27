@@ -19,7 +19,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 }) => {
   const { activeProfile } = useAuth();
 
-  const [userId, setUserId] = useState(initialFeedback?.userId || (users.find(u => u.role !== 'admin')?.uid || ''));
+  const [userId, setUserId] = useState(initialFeedback?.userId || (users.find(u => u.status === 'active' && u.role !== 'admin')?.uid || users.find(u => u.status === 'active')?.uid || ''));
   const [date, setDate] = useState(initialFeedback?.date || new Date().toISOString().split('T')[0]);
   const [type, setType] = useState<FeedbackType>(initialFeedback?.type || 'alinhamento');
   const [fact, setFact] = useState(initialFeedback?.fact || '');
@@ -46,6 +46,10 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     }
 
     const targetUser = users.find((u) => u.uid === userId);
+    if (!targetUser || (targetUser.status !== 'active' && userId !== initialFeedback?.userId)) {
+      setErrorMessage('Escolha um profissional ativo para este feedback.');
+      return;
+    }
     const feedbackId = initialFeedback?.id || `fb_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
     const feedbackData: Feedback = {
@@ -128,9 +132,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                 className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white cursor-pointer"
                 required
               >
-                {users.map((u) => (
-                  <option key={u.uid} value={u.uid}>
-                    {u.name} ({u.role === 'admin' ? 'Gestor' : 'Dev'})
+                {users.filter((u) => u.status === 'active' || u.uid === initialFeedback?.userId).map((u) => (
+                  <option key={u.uid} value={u.uid} disabled={u.status !== 'active'}>
+                    {u.name} ({u.status !== 'active' ? 'Inativo — vínculo anterior' : u.role === 'admin' ? 'Gestor' : 'Dev'})
                   </option>
                 ))}
               </select>
