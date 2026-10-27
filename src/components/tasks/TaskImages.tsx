@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ImagePlus, LoaderCircle, Paperclip, Trash2, X } from 'lucide-react';
+import { FileSpreadsheet, FileText, ImagePlus, LoaderCircle, Paperclip, Trash2, X } from 'lucide-react';
 import type { TaskImage } from '../../types';
 import { formatTaskImageError, MAX_TASK_IMAGES, resolveTaskImageUrl } from '../../services/taskImages';
 
@@ -39,21 +39,32 @@ const TaskImageThumb: React.FC<{
           type="button"
           disabled={!src}
           title={image.name}
-          onClick={() => setExpanded(true)}
-          className="w-full text-left cursor-zoom-in disabled:cursor-default"
+          onClick={() => {
+            if (image.contentType.startsWith('image/')) setExpanded(true);
+            else window.open(src, '_blank', 'noopener,noreferrer');
+          }}
+          className="w-full text-left cursor-pointer disabled:cursor-default"
         >
           {src ? (
-            <img src={src} alt={image.name} loading="lazy" className={`${compact ? 'h-12' : 'h-24'} w-full object-cover`} />
+            image.contentType.startsWith('image/') ? (
+              <img src={src} alt={image.name} loading="lazy" className={`${compact ? 'h-12' : 'h-24'} w-full object-cover`} />
+            ) : (
+              <div className={`${compact ? 'h-12' : 'h-24'} flex items-center justify-center gap-1 text-blue-700`}>
+                {image.contentType.includes('spreadsheet') || image.contentType.includes('excel')
+                  ? <FileSpreadsheet className="w-7 h-7" /> : <FileText className="w-7 h-7" />}
+                <span className="text-[10px] font-bold">{image.name.split('.').pop()?.toUpperCase()}</span>
+              </div>
+            )
           ) : (
             <div className={`${compact ? 'h-12' : 'h-24'} flex items-center justify-center p-2 text-xs text-slate-500 text-center`}>
-              {error ? 'Imagem indisponível' : <LoaderCircle className="w-4 h-4 animate-spin" />}
+              {error ? 'Anexo indisponível' : <LoaderCircle className="w-4 h-4 animate-spin" />}
             </div>
           )}
           <span className="block truncate p-1.5 text-[10px] text-slate-700" title={image.name}>{image.name}</span>
         </button>
         {canRemove && onRemove && (
           <button type="button" disabled={disabled} onClick={() => onRemove(image)}
-            aria-label={`Remover imagem ${image.name}`}
+            aria-label={`Remover anexo ${image.name}`}
             className="absolute right-1 top-1 rounded bg-white/95 text-rose-700 p-1 hover:bg-white disabled:opacity-50 cursor-pointer">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -97,14 +108,14 @@ export const TaskImages: React.FC<{
   };
 
   return (
-    <section className={compact ? 'space-y-1.5' : 'space-y-2.5'} aria-label="Imagens da demanda">
+    <section className={compact ? 'space-y-1.5' : 'space-y-2.5'} aria-label="Anexos da demanda">
       <div className="flex items-center justify-between gap-3">
         <h4 className="text-xs font-bold text-slate-800 inline-flex items-center gap-1.5">
           <Paperclip className="w-4 h-4 text-blue-600" />
-          Imagens ({total}/{MAX_TASK_IMAGES})
+          Anexos ({total}/{MAX_TASK_IMAGES})
         </h4>
-        {busy && <span role="status" className="text-xs text-blue-700 flex items-center gap-1"><LoaderCircle className="w-3.5 h-3.5 animate-spin" /> Enviando imagens...</span>}
-        {compact && onViewAll && <button type="button" onClick={onViewAll} className="text-[11px] font-bold text-blue-700 whitespace-nowrap">Ver imagens</button>}
+        {busy && <span role="status" className="text-xs text-blue-700 flex items-center gap-1"><LoaderCircle className="w-3.5 h-3.5 animate-spin" /> Enviando anexos...</span>}
+        {compact && onViewAll && <button type="button" onClick={onViewAll} className="text-[11px] font-bold text-blue-700 whitespace-nowrap">Ver anexos</button>}
       </div>
       {onFiles && (
         <div
@@ -114,14 +125,14 @@ export const TaskImages: React.FC<{
           onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); setDragging(false); pick(e.dataTransfer.files); } }}
           className={`rounded-lg border border-dashed text-center transition-colors ${compact ? 'px-3 py-2' : 'px-4 py-4'} ${dragging ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-slate-50'}`}
         >
-          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple
+          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,.pdf,.doc,.docx,.xls,.xlsx" multiple
             disabled={disabled || total >= MAX_TASK_IMAGES} className="sr-only"
             onChange={(e) => { pick(e.target.files || []); e.target.value = ''; }} />
           <button type="button" disabled={disabled || total >= MAX_TASK_IMAGES} onClick={() => inputRef.current?.click()}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-900 disabled:opacity-50 cursor-pointer">
-            <ImagePlus className="w-4 h-4" /> Escolher imagens
+            <ImagePlus className="w-4 h-4" /> Escolher anexos
           </button>
-          <p className="mt-1 text-[10px] text-slate-500">{compact ? 'Ctrl+V · arraste ou escolha uma imagem' : 'Ctrl+V para colar • arraste aqui • JPG, PNG, WebP ou GIF • até 6 MB'}</p>
+          <p className="mt-1 text-[10px] text-slate-500">{compact ? 'Ctrl+V para imagem · arraste ou escolha arquivos' : 'Imagens, PDF, Word e Excel • até 6 MB por arquivo • arraste ou escolha'}</p>
         </div>
       )}
       {(images.length > 0 || pending.length > 0) && (
@@ -131,14 +142,21 @@ export const TaskImages: React.FC<{
               canRemove={Boolean(canRemove?.(image))} onRemove={onRemoveExisting} />
           ))}
           {compact && images.length > 3 && <button type="button" onClick={onViewAll}
-            className="rounded-lg bg-slate-100 text-blue-700 text-[11px] font-bold">+{images.length - 3} imagens</button>}
+            className="rounded-lg bg-slate-100 text-blue-700 text-[11px] font-bold">+{images.length - 3} anexos</button>}
           {(compact ? pending.slice(0, 1) : pending).map((item) => (
             <div key={item.id} className="relative bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
-              <img src={item.previewUrl} alt={item.file.name} className={`${compact ? 'h-12' : 'h-24'} w-full object-cover`} />
+              {item.previewUrl ? (
+                <img src={item.previewUrl} alt={item.file.name} className={`${compact ? 'h-12' : 'h-24'} w-full object-cover`} />
+              ) : (
+                <div className={`${compact ? 'h-12' : 'h-24'} flex items-center justify-center text-blue-700`}>
+                  {item.file.type.includes('sheet') || item.file.type.includes('excel')
+                    ? <FileSpreadsheet className="w-7 h-7" /> : <FileText className="w-7 h-7" />}
+                </div>
+              )}
               <span className="block p-1.5 truncate text-[10px] text-slate-700">{item.file.name}</span>
               {onRemovePending && (
                 <button type="button" disabled={disabled} onClick={() => onRemovePending(item.id)}
-                  aria-label={`Retirar imagem ${item.file.name}`}
+                  aria-label={`Retirar anexo ${item.file.name}`}
                   className="absolute top-1 right-1 p-1 rounded bg-white/95 text-rose-700 disabled:opacity-50 cursor-pointer">
                   <X className="w-3.5 h-3.5" />
                 </button>
