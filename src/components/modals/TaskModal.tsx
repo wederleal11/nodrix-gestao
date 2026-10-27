@@ -13,6 +13,7 @@ interface TaskModalProps {
   users: UserProfile[];
   initialTask?: Task | null;
   defaultProjectId?: string;
+  onSaved?: (task: Task) => void;
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
@@ -22,6 +23,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   users,
   initialTask,
   defaultProjectId,
+  onSaved,
 }) => {
   const { profile } = useAuth();
 
@@ -144,6 +146,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       return;
     }
 
+    if (!initialTask && !assigneeId) {
+      setFormTab('base');
+      setErrorMessage('Selecione um responsável principal ativo antes de criar a demanda.');
+      return;
+    }
+
     if (status === 'in_progress') {
       if (!assigneeId) {
         setFormTab('base');
@@ -209,6 +217,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         uploadedImages,
       );
       saved = true;
+      onSaved?.(taskData);
       onClose();
     } catch (err: unknown) {
       setErrorMessage(formatTaskImageError(err));
@@ -314,14 +323,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
             <div>
               <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
-                Responsável principal
+                Responsável principal <span className="text-red-500 font-semibold">*</span>
               </label>
               <select
                 value={assigneeId}
                 onChange={(e) => setAssigneeId(e.target.value)}
                 className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white cursor-pointer"
               >
-                <option value="">Sem responsável definido</option>
+                <option value="" disabled={!initialTask}>Selecione um responsável</option>
                 {users.filter((u) => u.status === 'active' || u.uid === initialTask?.assigneeId).map((u) => (
                   <option key={u.uid} value={u.uid} disabled={u.status !== 'active'}>
                     {u.name} ({u.status !== 'active' ? 'Inativo — atribuição anterior' : u.role === 'admin' ? 'Gestor' : 'Dev'})
