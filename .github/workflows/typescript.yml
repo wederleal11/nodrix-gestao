@@ -22,6 +22,8 @@ jobs:
         run: npx tsx --test src/utils/projectLinks.test.ts src/components/tasks/TaskTextDetails.test.tsx
       - name: Test JSON and CSV task import
         run: npx tsx --test src/services/taskImport.test.ts
+      - name: Test task attachments
+        run: npx tsx --test src/services/taskImages.test.ts
       - name: Check TypeScript
         run: npm run lint
       - name: Build client
