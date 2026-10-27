@@ -12,7 +12,7 @@ import {
 import type { Task, WeeklyEvent, UserProfile, Project } from '../../types';
 import { formatDateBR, isOverdue } from '../../utils/formatters';
 import { MonthlyPlannerCalendar } from './MonthlyPlannerCalendar';
-import { localDateKey, monthAtOffset, monthHeading } from '../../utils/calendarMonth';
+import { localDateKey, monthAtOffset, monthHeading, weekDatesForOffset } from '../../utils/calendarMonth';
 import { deleteWeeklyEvent } from '../../services/db';
 import { useAuth } from '../../context/AuthContext';
 
@@ -75,32 +75,8 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
     setSelectedDate(localDateKey(new Date()));
   };
 
-  // Calculate Monday date of the target week in SP timezone
-  const weekDates = useMemo(() => {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const distanceToMonday = (dayOfWeek + 6) % 7;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - distanceToMonday + weekOffset * 7);
-
-    const dates: { dateStr: string; dayName: string; formatted: string; isToday: boolean }[] = [];
-    const dayNames = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
-      dates.push({
-        dateStr,
-        dayName: dayNames[i],
-        formatted: `${d.getDate()}/${d.getMonth() + 1}`,
-        isToday: dateStr === todayStr,
-      });
-    }
-
-    return dates;
-  }, [weekOffset]);
+  // Local day headings and task date strings must agree, including at 23:59.
+  const weekDates = useMemo(() => weekDatesForOffset(weekOffset), [weekOffset]);
 
   const displayedDates = showWeekend ? weekDates : weekDates.slice(0, 5);
 
