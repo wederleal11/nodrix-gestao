@@ -99,6 +99,15 @@ export interface TaskImage {
   createdAt: string;
 }
 
+export interface DeadlineChange {
+  from: string;
+  to: string;
+  reason: string;
+  actorId: string;
+  actorName: string;
+  changedAt: string;
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -112,6 +121,10 @@ export interface Task {
   priority: PriorityLevel;
   status: TaskStatus;
   deadline?: string; // YYYY-MM-DD
+  /** First due date, retained after revisions. */
+  initialDeadline?: string;
+  /** Append-only history maintained by the canonical deadline service. */
+  deadlineChanges?: DeadlineChange[];
   plannedWeek?: string; // e.g. "2026-W43"
   checklist?: ChecklistItem[];
   links?: TaskLink[];
