@@ -20,6 +20,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { validatePredecessorSelection } from '../utils/taskDependencies';
 import type {
   Project,
   ProjectStatus,
@@ -404,8 +405,13 @@ export async function saveTask(
   actor: { id: string; name: string; email: string },
   isNew: boolean,
   newlyUploadedImages: TaskImage[] = [],
+  knownTasks: Task[] = [],
 ): Promise<void> {
   const path = `tasks/${task.id}`;
+  if (task.predecessorIds?.length) {
+    const validation = validatePredecessorSelection(task.id, task.predecessorIds, knownTasks);
+    if (validation) throw new Error(validation);
+  }
   if (isNew && !task.assigneeId?.trim()) {
     throw new Error('Selecione um responsável antes de criar a demanda.');
   }

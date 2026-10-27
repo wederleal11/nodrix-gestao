@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Plus, Trash2, ChevronRight, ChevronDown } from 'lucide-react';
+import { TaskPredecessorsPicker } from '../tasks/TaskPredecessorsPicker';
+import { validatePredecessorSelection } from '../../utils/taskDependencies';
 import type { Task, Project, UserProfile, PriorityLevel, TaskStatus, ChecklistItem, TaskLink } from '../../types';
 import { saveTask } from '../../services/db';
 import { useAuth } from '../../context/AuthContext';
@@ -11,6 +13,7 @@ interface TaskModalProps {
   onClose: () => void;
   projects: Project[];
   users: UserProfile[];
+  tasks: Task[];
   initialTask?: Task | null;
   defaultProjectId?: string;
   onSaved?: (task: Task) => void;
@@ -21,6 +24,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   onClose,
   projects,
   users,
+  tasks,
   initialTask,
   defaultProjectId,
   onSaved,
@@ -39,6 +43,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [status, setStatus] = useState<TaskStatus>(initialTask?.status || 'planned');
   const [deadline, setDeadline] = useState(initialTask?.deadline || '');
   const [checklist, setChecklist] = useState<ChecklistItem[]>(initialTask?.checklist || []);
+  const [predecessorIds, setPredecessorIds] = useState<string[]>(initialTask?.predecessorIds || []);
   const [newChecklistText, setNewChecklistText] = useState('');
   const assignedProject = projects.find((project) =>
     project.id === (initialTask?.projectId || defaultProjectId || projects[0]?.id));
@@ -102,7 +107,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
   // Collapsible section like print 2
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [formTab, setFormTab] = useState<'base'|'delivery'|'images'|'extra'>('base');
+  const [formTab, setFormTab] = useState<'base'|'delivery'|'images'|'extra'|'predecessors'>('base');
 
   if (!isOpen) return null;
 
@@ -174,6 +179,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     }
 
     const taskId = initialTask?.id || `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const dependencyError = validatePredecessorSelection(taskId, predecessorIds, tasks);
+    if (dependencyError) {
+      setFormTab('predecessors');
+      setErrorMessage(dependencyError);
+      return;
+    }
     const taskData: Task = {
       ...(initialTask || {}),
       id: taskId,
@@ -189,6 +200,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       status: initialTask?.status || status,
       deadline,
       checklist,
+      predecessorIds,
       links,
       images: initialTask?.images || [],
       createdById: initialTask?.createdById || profile?.uid || 'system',
@@ -215,6 +227,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         { id: profile.uid, name: profile.name, email: profile.email },
         !initialTask,
         uploadedImages,
+        tasks,
       );
       saved = true;
       onSaved?.(taskData);
@@ -277,6 +290,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               ['delivery','Entrega'],
               ['images',`Anexos (${pendingImages.length + (initialTask?.images?.length || 0)})`],
               ['extra','Checklist e links'],
+              ['predecessors',`Predecessoras (${predecessorIds.length})`],
             ] as const).map(([tab,label])=>(
               <button type="button" key={tab} role="tab" aria-selected={formTab === tab} onClick={()=>setFormTab(tab)}
                 className={`px-3 py-2 text-xs font-bold rounded-md ${formTab===tab?'bg-[#004e9a] text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
@@ -443,6 +457,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           />
           {imageError && <p role="alert" className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-2">{imageError}</p>}
 
+          </div>}
+          {formTab === 'predecessors' && <div className="h-full min-h-0 pb-1">
+            <TaskPredecessorsPicker taskId={initialTask?.id || ''} projectId={projectId}
+              tasks={tasks} projects={projects} selectedIds={predecessorIds} onChange={setPredecessorIds} />
           </div>}
           {formTab === 'extra' && <div className="space-y-3">
           {/* Checklist and references */}

@@ -378,6 +378,7 @@ const MainApp: React.FC = () => {
           onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }}
           projects={projects}
           users={allUsers}
+          tasks={tasks}
           initialTask={editingTask}
           defaultProjectId={defaultTaskProjectId}
           onSaved={(savedTask) => {
@@ -396,6 +397,8 @@ const MainApp: React.FC = () => {
         }}
         projects={projects}
         users={allUsers}
+        tasks={tasks}
+        onOpenRelatedTask={(related) => setInspectingTask(related)}
       />
 
       {isProjectModalOpen && (

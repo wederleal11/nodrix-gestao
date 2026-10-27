@@ -8,6 +8,8 @@ import {
   ShieldAlert,
   Edit2,
   Trash2,
+  GitBranch,
+  ListChecks,
 } from 'lucide-react';
 import type { Task, TaskImage, Project, UserProfile, PriorityLevel } from '../../types';
 import {
@@ -28,6 +30,7 @@ import { TaskQuickActivity } from '../tasks/TaskQuickActivity';
 import { TaskChecklistPanel } from '../tasks/TaskChecklistPanel';
 import { TaskTextPreview, TaskTextDetailsModal, type TaskTextSection } from '../tasks/TaskTextDetails';
 import { effectiveTaskLinks } from '../../utils/projectLinks';
+import { checklistProgress, taskDependencySummary } from '../../utils/taskDependencies';
 import { deleteTaskImageBlob, formatTaskImageError, MAX_TASK_IMAGES, uploadTaskImage, validateTaskImage } from '../../services/taskImages';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -42,6 +45,8 @@ interface TaskDetailModalProps {
   onEdit: (task: Task) => void;
   projects: Project[];
   users: UserProfile[];
+  tasks: Task[];
+  onOpenRelatedTask?: (task: Task) => void;
 }
 
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
@@ -50,6 +55,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onEdit,
   projects,
   users,
+  tasks,
+  onOpenRelatedTask,
 }) => {
   const { activeProfile, profile, isAdmin } = useAuth();
 
@@ -68,7 +75,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionError, setActionError] = useState('');
-  const [detailTab, setDetailTab] = useState<'summary'|'activity'|'images'|'links'>('summary');
+  const [detailTab, setDetailTab] = useState<'summary'|'activity'|'images'|'links'|'predecessors'>('summary');
   const [checklistError, setChecklistError] = useState('');
   const [expandedTextSection, setExpandedTextSection] = useState<TaskTextSection | null>(null);
   const closeTextDetails = useCallback(() => setExpandedTextSection(null), []);
@@ -155,6 +162,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const parentProject = projects.find((p) => p.id === task.projectId);
   const visibleLinks = effectiveTaskLinks(task, parentProject);
   const checklist = task.checklist || [];
+  const checklistStats = checklistProgress(task);
+  const dependencyStats = taskDependencySummary(task, tasks);
   const pendingCount = (task.activity || []).filter((item) => item.kind === 'pending' && !item.resolved).length;
   const isAssignee = activeProfile?.uid === task.assigneeId;
   const canApprove = isAdmin || (activeProfile?.uid !== task.assigneeId);
@@ -420,6 +429,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               ['activity', `Acompanhamento${pendingCount ? ` (${pendingCount})` : ''}`],
               ['images', `Imagens (${task.images?.length || 0})`],
               ['links', `Referências (${visibleLinks.length})`],
+              ['predecessors', `Predecessoras (${dependencyStats.predecessorsTotal})`],
             ] as const).map(([tab, label]) => <button key={tab} role="tab" aria-selected={detailTab === tab} type="button" onClick={() => setDetailTab(tab)}
               className={`rounded-md px-3 py-2 text-[11px] font-bold transition-colors ${detailTab === tab ? 'bg-[#004e9a] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
               {label}
@@ -428,6 +438,20 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden flex flex-col">
             {detailTab === 'summary' && (
               <div className="flex-1 min-h-0 flex flex-col gap-3 lg:overflow-hidden">
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0 text-[11px]">
+                  {checklistStats.total > 0 && <span className={`rounded-md border px-2 py-1 inline-flex items-center gap-1 font-semibold ${checklistStats.isComplete ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
+                    {checklistStats.isComplete ? <CheckCircle2 className="w-3.5 h-3.5"/> : <ListChecks className="w-3.5 h-3.5"/>}
+                    Checklist {checklistStats.completed}/{checklistStats.total}
+                  </span>}
+                  <button type="button" onClick={() => setDetailTab('predecessors')}
+                    className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 inline-flex items-center gap-1 text-slate-700 hover:border-blue-300 hover:text-blue-800">
+                    <GitBranch className="w-3.5 h-3.5"/> Predecessoras {dependencyStats.predecessorsTotal} · Faltam {dependencyStats.predecessorsPending}
+                  </button>
+                  <button type="button" onClick={() => setDetailTab('predecessors')}
+                    className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700 hover:border-blue-300 hover:text-blue-800">
+                    Dependentes {dependencyStats.dependentsTotal} · Faltam {dependencyStats.dependentsPending}
+                  </button>
+                </div>
                 {task.description && <TaskTextPreview section="description" value={task.description} onExpand={setExpandedTextSection} />}
           {/* Blocker alert if blocked */}
           {task.status === 'blocked' && (
@@ -529,6 +553,38 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 canRemove={(image) => Boolean(profile?.uid && image.uploadedBy === profile.uid)}
                 disabled={imageBusy} busy={imageBusy} />
               {imageError && <p role="alert" className="text-xs text-rose-700">{imageError}</p>}
+            </div>}
+            {detailTab === 'predecessors' && <div className="grid grid-cols-1 md:grid-cols-2 gap-3 overflow-y-auto pb-3">
+              {([
+                { title: 'Precisa concluir antes', items: dependencyStats.predecessors,
+                  total: dependencyStats.predecessorsTotal, pending: dependencyStats.predecessorsPending },
+                { title: 'Dependem desta tarefa', items: dependencyStats.dependents,
+                  total: dependencyStats.dependentsTotal, pending: dependencyStats.dependentsPending },
+              ] as const).map((group) => <section key={group.title} className="rounded-lg border border-slate-200 bg-white p-3 min-w-0">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2 mb-2">
+                  <strong className="text-xs text-slate-800">{group.title} ({group.total})</strong>
+                  <span className="text-[11px] font-semibold text-amber-700">{group.pending} pendentes</span>
+                </div>
+                <div className="space-y-1.5">
+                  {group.items.map((related) => <button type="button" key={related.id}
+                    onClick={() => onOpenRelatedTask?.(related)}
+                    className="w-full flex gap-2 items-center text-left rounded-md border border-slate-200 px-2 py-2 hover:border-blue-300 hover:bg-blue-50"
+                    title="Abrir tarefa relacionada">
+                    {related.status === 'completed' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0"/> : <Clock className="w-4 h-4 text-slate-400 shrink-0"/>}
+                    <span className="min-w-0 flex-1 truncate text-slate-800 font-semibold">{related.title}</span>
+                    <span className="text-[10px] shrink-0 text-slate-500">{related.status === 'completed' ? 'Concluída' : 'Pendente'}</span>
+                  </button>)}
+                  {group.title === 'Precisa concluir antes' && dependencyStats.missingPredecessorIds.map((id) => <p key={id}
+                    className="text-[11px] rounded-md bg-amber-50 border border-amber-200 p-2 text-amber-800">
+                    Predecessora não encontrada ({id}). Revise o vínculo na edição.
+                  </p>)}
+                  {group.total === 0 && <p className="text-[11px] text-slate-500">Nenhuma tarefa vinculada.</p>}
+                </div>
+              </section>)}
+              {(isAdmin || isAssignee) && <button type="button" onClick={() => { onClose(); onEdit(task); }}
+                className="col-span-full rounded-md bg-blue-50 text-blue-700 font-bold px-3 py-2 hover:bg-blue-100 text-xs">
+                Editar tarefas predecessoras
+              </button>}
             </div>}
             {detailTab === 'links' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
