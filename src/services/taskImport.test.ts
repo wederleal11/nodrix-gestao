@@ -36,7 +36,7 @@ test('task imports require an active assignee',()=>{
  const noAssignee=previewTaskImport([{...rows[0],responsavel:''}],[project],users,[],'owner');
  assert.equal(noAssignee.rows.length,0);
  assert.match(noAssignee.errors.join(';'),/responsável ativo/);
- const inactive=previewTaskImport([rows[0]],[project],[{...users[0],status:'inactive'},users[1]],[],'owner');
+ const inactive=previewTaskImport([rows[0]],[project],[users[0],{...users[1],status:'inactive'}],[],'owner');
  assert.equal(inactive.rows.length,0);
  assert.match(inactive.errors.join(';'),/inativo/);
 });
