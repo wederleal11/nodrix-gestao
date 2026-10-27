@@ -32,6 +32,14 @@ test('CSV quoted cell and date preserved',()=>{
  assert.equal(result.rows[0].deadline,'2026-10-28');
  assert.equal(result.rows[0].description,'um; dois');
 });
+test('task imports require an active assignee',()=>{
+ const noAssignee=previewTaskImport([{...rows[0],responsavel:''}],[project],users,[],'owner');
+ assert.equal(noAssignee.rows.length,0);
+ assert.match(noAssignee.errors.join(';'),/responsável ativo/);
+ const inactive=previewTaskImport([rows[0]],[project],[{...users[0],status:'inactive'},users[1]],[],'owner');
+ assert.equal(inactive.rows.length,0);
+ assert.match(inactive.errors.join(';'),/inativo/);
+});
 test('duplicate titles and long text are errors',()=>{
  const existing=[{projectId:project.id,title:rows[0].titulo} as Task];
  const result=previewTaskImport([rows[0],{...rows[1],descricao:'X'.repeat(2001)}],[project],users,existing,'owner');
