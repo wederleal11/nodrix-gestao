@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
   Calendar,
+  CalendarDays,
+  Columns3,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -9,6 +11,8 @@ import {
 } from 'lucide-react';
 import type { Task, WeeklyEvent, UserProfile, Project } from '../../types';
 import { formatDateBR, isOverdue } from '../../utils/formatters';
+import { MonthlyPlannerCalendar } from './MonthlyPlannerCalendar';
+import { localDateKey, monthAtOffset, monthHeading } from '../../utils/calendarMonth';
 import { deleteWeeklyEvent } from '../../services/db';
 import { useAuth } from '../../context/AuthContext';
 
@@ -43,7 +47,33 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
     return ids;
   }, [firebaseUser?.uid, firebaseUser?.email, users]);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
+  const [selectedDate, setSelectedDate] = useState(() => localDateKey(new Date()));
   const [showWeekend, setShowWeekend] = useState(false);
+
+  const targetMonth = useMemo(() => monthAtOffset(monthOffset), [monthOffset]);
+  const personalTasks = useMemo(() =>
+    tasks.filter(task => Boolean(profile?.uid && myAccountIds.has(task.assigneeId || ''))),
+    [tasks, myAccountIds, profile?.uid]);
+  const personalEvents = useMemo(() =>
+    events.filter(event => Boolean(profile?.uid && event.assigneeIds?.some(id => myAccountIds.has(id)))),
+    [events, myAccountIds, profile?.uid]);
+  const changePeriod = (delta: number) => {
+    if (viewMode === 'week') {
+      setWeekOffset(current => current + delta);
+    } else {
+      const offset = monthOffset + delta;
+      const nextMonth = monthAtOffset(offset);
+      setMonthOffset(offset);
+      setSelectedDate(localDateKey(nextMonth));
+    }
+  };
+  const navigateToday = () => {
+    setWeekOffset(0);
+    setMonthOffset(0);
+    setSelectedDate(localDateKey(new Date()));
+  };
 
   // Calculate Monday date of the target week in SP timezone
   const weekDates = useMemo(() => {
@@ -88,26 +118,27 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
         {/* Left: Week navigator */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setWeekOffset(weekOffset - 1)}
+            onClick={() => changePeriod(-1)}
             className="p-1.5 border border-slate-300 rounded hover:bg-slate-100 cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4 text-slate-600" />
           </button>
           <span className="font-bold text-xs text-slate-800 px-2">
-            {weekDates[0]?.formatted} a {weekDates[6]?.formatted} ({weekOffset === 0 ? 'Semana Atual' : weekOffset > 0 ? `+${weekOffset} sem` : `${weekOffset} sem`})
+            {viewMode === 'month' ? monthHeading(targetMonth) :
+              `${weekDates[0]?.formatted} a ${weekDates[6]?.formatted} (${weekOffset === 0 ? 'Semana Atual' : weekOffset > 0 ? `+${weekOffset} sem` : `${weekOffset} sem`})`}
           </span>
           <button
-            onClick={() => setWeekOffset(weekOffset + 1)}
+            onClick={() => changePeriod(1)}
             className="p-1.5 border border-slate-300 rounded hover:bg-slate-100 cursor-pointer"
           >
             <ChevronRight className="w-4 h-4 text-slate-600" />
           </button>
-          {weekOffset !== 0 && (
+          {(viewMode === 'month' ? monthOffset !== 0 : weekOffset !== 0) && (
             <button
-              onClick={() => setWeekOffset(0)}
+              onClick={navigateToday}
               className="text-xs text-blue-600 font-semibold hover:underline ml-2"
             >
-              Semana Atual
+              Hoje
             </button>
           )}
         </div>
@@ -118,7 +149,25 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
             Minha agenda: {profile?.name || 'Minha conta'}
           </span>
 
-          <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 text-xs">
+          <div role="group" aria-label="Visualização da agenda" className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 p-0.5">
+            <button type="button" aria-pressed={viewMode === 'week'} onClick={() => setViewMode('week')}
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-semibold ${viewMode === 'week' ? 'bg-[#0066cc] text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}>
+              <Columns3 className="w-3.5 h-3.5"/> Semana
+            </button>
+            <button type="button" aria-pressed={viewMode === 'month'} onClick={() => {
+                setViewMode('month');
+                if (weekOffset !== 0) {
+                  const date = new Date(weekDates[0].dateStr + 'T12:00:00');
+                  const base = new Date();
+                  setMonthOffset((date.getFullYear()-base.getFullYear())*12 + date.getMonth()-base.getMonth());
+                  setSelectedDate(weekDates[0].dateStr);
+                }
+              }}
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-semibold ${viewMode === 'month' ? 'bg-[#0066cc] text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}>
+              <CalendarDays className="w-3.5 h-3.5"/> Mês
+            </button>
+          </div>
+          {viewMode === 'week' && <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 text-xs">
             <input
               type="checkbox"
               checked={showWeekend}
@@ -126,7 +175,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
               className="w-3.5 h-3.5 text-blue-600 rounded"
             />
             <span>Fim de semana</span>
-          </label>
+          </label>}
 
           <button
             onClick={() => onAddEvent()}
@@ -144,20 +193,18 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
         </div>
       </div>
 
-      {/* 2. CALENDAR COLUMNS */}
+      {/* 2. Optional monthly calendar or existing weekly columns. */}
+      {viewMode === 'month' ? (
+        <MonthlyPlannerCalendar month={targetMonth} selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          tasks={personalTasks} events={personalEvents}
+          onOpenTask={onOpenTask} onAddEvent={onAddEvent}
+          onDeleteEvent={handleDeleteEvent}/>
+      ) : (
       <div className={`grid grid-cols-1 ${showWeekend ? 'md:grid-cols-7' : 'md:grid-cols-5'} gap-3 items-start`}>
         {displayedDates.map((col) => {
-          const dayTasks = tasks.filter((t) => {
-            if (t.deadline !== col.dateStr) return false;
-            if (!profile?.uid || !myAccountIds.has(t.assigneeId || '')) return false;
-            return true;
-          });
-
-          const dayEvents = events.filter((ev) => {
-            if (ev.date !== col.dateStr) return false;
-            if (!profile?.uid || !ev.assigneeIds?.some((id) => myAccountIds.has(id))) return false;
-            return true;
-          });
+          const dayTasks = personalTasks.filter(task => task.deadline === col.dateStr);
+          const dayEvents = personalEvents.filter(event => event.date === col.dateStr);
 
           return (
             <div
@@ -249,6 +296,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
           );
         })}
       </div>
+      )}
     </div>
   );
 };

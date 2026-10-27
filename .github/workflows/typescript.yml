@@ -28,6 +28,8 @@ jobs:
         run: npx tsx --test src/utils/taskDependencies.test.ts
       - name: Test canonical Kanban status selection
         run: npx tsx --test src/utils/taskStatusOptions.test.ts
+      - name: Test monthly calendar and default task assignee
+        run: npx tsx --test src/utils/calendarMonth.test.ts src/utils/taskAssignee.test.ts
       - name: Check TypeScript
         run: npm run lint
       - name: Build client

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { X, Plus, Trash2, ChevronRight, ChevronDown } from 'lucide-react';
 import { TaskPredecessorsPicker } from '../tasks/TaskPredecessorsPicker';
 import { validatePredecessorSelection } from '../../utils/taskDependencies';
+import { defaultTaskAssignee } from '../../utils/taskAssignee';
 import type { Task, Project, UserProfile, PriorityLevel, TaskStatus, ChecklistItem, TaskLink, KanbanColumn } from '../../types';
 import { getKanbanStatusOptions, getDefaultNewTaskStatus, isConfiguredTaskStatus } from '../../utils/taskStatusOptions';
 import { saveTask } from '../../services/db';
@@ -41,7 +42,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [description, setDescription] = useState(initialTask?.description || '');
   const [expectedResult, setExpectedResult] = useState(initialTask?.expectedResult || '');
   const [acceptanceCriteria, setAcceptanceCriteria] = useState(initialTask?.acceptanceCriteria || '');
-  const [assigneeId, setAssigneeId] = useState(initialTask?.assigneeId || '');
+  const [assigneeId, setAssigneeId] = useState(() => defaultTaskAssignee(initialTask, profile, users));
+  // Team profiles arrive asynchronously; preselect the real creator only while empty.
+  // A manually selected responsible is never replaced by a later subscription.
+  useEffect(() => {
+    if (initialTask || assigneeId) return;
+    const creator = defaultTaskAssignee(null, profile, users);
+    if (creator) setAssigneeId(creator);
+  }, [initialTask, assigneeId, profile?.uid, profile?.status, users]);
   const [priority, setPriority] = useState<PriorityLevel>(initialTask?.priority || 'P2');
   const [status, setStatus] = useState<TaskStatus>(initialTask?.status || 'backlog');
   const [deadline, setDeadline] = useState(initialTask?.deadline || '');
