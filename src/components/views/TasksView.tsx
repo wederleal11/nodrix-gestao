@@ -337,7 +337,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
       </div>
 
       {/* Full-height Kanban: each column scrolls independently; every card is mounted. */}
-      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3 items-stretch select-none flex-1 min-h-0 overflow-x-auto">
+      <div className="grid grid-flow-col auto-cols-[minmax(240px,1fr)] gap-3 items-stretch select-none flex-1 min-h-0 overflow-x-auto">
           {visibleColumns.map((col) => {
             const isUnmapped = col.id === '__unmapped__';
             const colTasks = isUnmapped
@@ -351,7 +351,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                 onDragOver={(e) => handleDragOver(e, col.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, col.id)}
-                className={`bg-[#edf2f7] rounded-lg overflow-hidden flex flex-col min-h-0 h-full w-full min-w-0 shadow-2xs border transition-all duration-150 ${
+                className={`bg-[#edf2f7] rounded-lg overflow-hidden flex flex-col min-h-0 h-full w-full min-w-[240px] shadow-2xs border transition-all duration-150 ${
                   isDragOver
                     ? 'ring-2 ring-blue-500 bg-blue-50/60 border-blue-400 scale-[1.01]'
                     : 'border-slate-200'
