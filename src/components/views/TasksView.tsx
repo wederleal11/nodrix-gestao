@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   List,
   Kanban,
@@ -39,6 +39,7 @@ interface TasksViewProps {
   users: UserProfile[];
   onOpenTask: (task: Task) => void;
   onAddTask: () => void;
+  focusTaskId?: string | null;
 }
 
 export const TasksView: React.FC<TasksViewProps> = ({
@@ -47,10 +48,12 @@ export const TasksView: React.FC<TasksViewProps> = ({
   users,
   onOpenTask,
   onAddTask,
+  focusTaskId,
 }) => {
   const { activeProfile, isAdmin } = useAuth();
 
-  const [columnPages, setColumnPages] = useState<Record<string,number>>({});
+  const focusedCardRef = useRef<HTMLDivElement | null>(null);
+  const lastScrolledTaskRef = useRef<string | null>(null);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [projectFilter, setProjectFilter] = useState('all');
@@ -76,6 +79,16 @@ export const TasksView: React.FC<TasksViewProps> = ({
     return () => unsub();
   }, []);
 
+  // Newly created tasks must be visible even when the user had filters enabled.
+  useEffect(() => {
+    if (!focusTaskId) return;
+    setSearchQuery('');
+    setProjectFilter('all');
+    setAssigneeFilter('all');
+    setPriorityFilter('all');
+    setStatusFilter('all');
+  }, [focusTaskId]);
+
   const filteredTasks = tasks.filter((t) => {
     if (projectFilter !== 'all' && t.projectId !== projectFilter) return false;
     if (assigneeFilter !== 'all' && t.assigneeId !== assigneeFilter) return false;
@@ -93,6 +106,27 @@ export const TasksView: React.FC<TasksViewProps> = ({
 
     return true;
   });
+
+  // A task with a legacy/removed status must remain visible and recoverable.
+  const unmappedTasks = filteredTasks.filter((task) => !columns.some((column) => column.id === task.status));
+  const visibleColumns: KanbanColumn[] = unmappedTasks.length
+    ? [...columns, {
+        id: '__unmapped__',
+        title: 'OUTROS STATUS',
+        headerBg: 'bg-[#475569]',
+        borderAccent: 'border-l-[#475569]',
+        order: columns.length,
+      }]
+    : columns;
+
+  useEffect(() => {
+    if (!focusTaskId || lastScrolledTaskRef.current === focusTaskId) return;
+    if (!tasks.some((task) => task.id === focusTaskId)) return;
+    if (focusedCardRef.current) {
+      focusedCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      lastScrolledTaskRef.current = focusTaskId;
+    }
+  }, [focusTaskId, tasks, columns, projectFilter, assigneeFilter, priorityFilter, statusFilter, searchQuery]);
 
   // DRAG AND DROP HANDLERS
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
@@ -131,7 +165,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    if (task.status === targetStatus) return;
+    if (task.status === targetStatus || targetStatus === '__unmapped__') return;
 
     try {
       setStatusFeedback(`Movendo "${task.title.slice(0, 30)}..." para ${targetStatus.toUpperCase()}`);
@@ -206,7 +240,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-3 h-full min-h-0">
       {/* Status Feedback Toast */}
       {statusFeedback && (
         <div className="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
@@ -302,13 +336,13 @@ export const TasksView: React.FC<TasksViewProps> = ({
         </div>
       </div>
 
-      {/* 2. KANBAN BOARD WITH FLUID DRAG & DROP */}
-      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3 items-start select-none">
-          {columns.map((col) => {
-            const colTasks = filteredTasks.filter((t) => t.status === col.id);
-            const totalPages = Math.max(1, Math.ceil(colTasks.length/3));
-            const page = Math.min(columnPages[col.id] || 0,totalPages-1);
-            const visibleTasks = colTasks.slice(page*3,(page+1)*3);
+      {/* Full-height Kanban: each column scrolls independently; every card is mounted. */}
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3 items-stretch select-none flex-1 min-h-0 overflow-x-auto">
+          {visibleColumns.map((col) => {
+            const isUnmapped = col.id === '__unmapped__';
+            const colTasks = isUnmapped
+              ? unmappedTasks
+              : filteredTasks.filter((t) => t.status === col.id);
             const isDragOver = dragOverColumnId === col.id;
 
             return (
@@ -317,7 +351,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                 onDragOver={(e) => handleDragOver(e, col.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, col.id)}
-                className={`bg-[#edf2f7] rounded-lg overflow-hidden flex flex-col min-h-[465px] w-full min-w-0 shadow-2xs border transition-all duration-150 ${
+                className={`bg-[#edf2f7] rounded-lg overflow-hidden flex flex-col min-h-0 h-full w-full min-w-0 shadow-2xs border transition-all duration-150 ${
                   isDragOver
                     ? 'ring-2 ring-blue-500 bg-blue-50/60 border-blue-400 scale-[1.01]'
                     : 'border-slate-200'
@@ -329,7 +363,8 @@ export const TasksView: React.FC<TasksViewProps> = ({
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="truncate">{col.title}</span>
-                    <button
+                    {!isUnmapped && <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenEditColumn(col);
@@ -338,7 +373,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                       title="Editar título ou cor da lista"
                     >
                       <Edit2 className="w-3 h-3" />
-                    </button>
+                    </button>}
                   </div>
 
                   <span className="bg-white/20 px-2 py-0.5 rounded-full text-[11px] font-black shrink-0">
@@ -347,19 +382,21 @@ export const TasksView: React.FC<TasksViewProps> = ({
                 </div>
 
                 {/* Cards Container with Drag and Drop */}
-                <div className="p-2 space-y-2.5 flex-1">
-                  {visibleTasks.map((t) => {
+                <div className="p-2 space-y-2.5 flex-1 min-h-0 overflow-y-auto overscroll-contain" aria-label={`Demandas em ${col.title}`}>
+                  {isUnmapped && <p className="rounded-md bg-amber-50 border border-amber-200 p-2 text-[10px] text-amber-900">Demandas preservadas com status sem coluna. Arraste para uma etapa válida.</p>}
+                  {colTasks.map((t) => {
                     const late = isOverdue(t.deadline, t.status);
                     const isDragging = draggingTaskId === t.id;
 
                     return (
                       <div
                         key={t.id}
+                        ref={t.id === focusTaskId ? focusedCardRef : undefined}
                         draggable={true}
                         onDragStart={(e) => handleDragStart(e, t.id)}
                         onDragEnd={handleDragEnd}
                         onClick={() => onOpenTask(t)}
-                        className={`bg-white rounded-md p-3 border transition-all cursor-grab active:cursor-grabbing space-y-2.5 border-l-4 ${col.borderAccent} ${
+                        className={`bg-white rounded-md p-3 border transition-all cursor-grab active:cursor-grabbing space-y-2.5 border-l-4 ${col.borderAccent} ${t.id === focusTaskId ? 'ring-2 ring-blue-500 shadow-md' : ''} ${
                           isDragging
                             ? 'opacity-30 scale-95 border-dashed border-2 border-blue-500 shadow-xl'
                             : 'border-slate-200 hover:border-slate-400 hover:shadow-md'
@@ -430,17 +467,6 @@ export const TasksView: React.FC<TasksViewProps> = ({
                     );
                   })}
 
-                  {totalPages > 1 && (
-                    <div className="flex justify-between items-center border-t border-slate-200 pt-2 text-[11px]">
-                      <button type="button" disabled={page === 0}
-                        onClick={() => setColumnPages((old) => ({ ...old, [col.id]: page - 1 }))}
-                        className="text-blue-700 font-bold disabled:opacity-25">Anterior</button>
-                      <span className="text-slate-600 font-semibold">{page+1}/{totalPages}</span>
-                      <button type="button" disabled={page+1 === totalPages}
-                        onClick={() => setColumnPages((old) => ({ ...old, [col.id]: page + 1 }))}
-                        className="text-blue-700 font-bold disabled:opacity-25">Próxima</button>
-                    </div>
-                  )}
                   {colTasks.length === 0 && (
                     <div className="py-16 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-1">
                       <span>Sem demandas nesta etapa</span>
