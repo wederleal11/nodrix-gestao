@@ -20,7 +20,13 @@ service firebase.storage {
         && imageId.size() <= 80
         && request.resource.size > 0
         && request.resource.size <= 6 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png|webp|gif)')
+        && request.resource.contentType in [
+          'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+          'application/pdf', 'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ]
         && request.resource.metadata.uploadedBy == request.auth.uid;
 
       allow delete: if googleVerified() && request.auth.uid == ownerUid;
