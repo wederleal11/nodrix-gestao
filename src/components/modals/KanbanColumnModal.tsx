@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Palette, Trash2, Check } from 'lucide-react';
 import type { KanbanColumn } from '../../types';
 
@@ -40,6 +40,17 @@ export const KanbanColumnModal: React.FC<KanbanColumnModalProps> = ({
   const [order, setOrder] = useState<number>(column ? column.order : totalColumns);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // The form stays mounted across edit/create transitions; synchronize on open.
+  useEffect(() => {
+    if (!isOpen) return;
+    setTitle(column?.title || '');
+    setId(column?.id || '');
+    setSelectedColor(COLOR_PRESETS.find((color) => color.bg === column?.headerBg) || COLOR_PRESETS[0]);
+    setOrder(column?.order ?? totalColumns);
+    setErrorMessage('');
+    setIsSubmitting(false);
+  }, [isOpen, column?.id, column?.title, column?.headerBg, column?.order, totalColumns]);
 
   if (!isOpen) return null;
 
