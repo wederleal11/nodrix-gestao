@@ -439,6 +439,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             {detailTab === 'summary' && (
               <div className="flex-1 min-h-0 flex flex-col gap-3 lg:overflow-hidden">
                 <div className="flex flex-wrap items-center gap-1.5 shrink-0 text-[11px]">
+                  {Boolean(task.deadlineChanges?.length) && (
+                    <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-800"
+                      title={`Prazo original: ${formatDateBR(task.initialDeadline)}. Justificativa: ${task.deadlineChanges?.[task.deadlineChanges.length - 1]?.reason || ''}`}>
+                      Prazo ajustado ${task.deadlineChanges?.length}x
+                    </span>
+                  )}
                   {checklistStats.total > 0 && <span className={`rounded-md border px-2 py-1 inline-flex items-center gap-1 font-semibold ${checklistStats.isComplete ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
                     {checklistStats.isComplete ? <CheckCircle2 className="w-3.5 h-3.5"/> : <ListChecks className="w-3.5 h-3.5"/>}
                     Checklist {checklistStats.completed}/{checklistStats.total}
