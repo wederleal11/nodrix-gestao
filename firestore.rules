@@ -106,7 +106,10 @@ service cloud.firestore {
 
       allow create: if isActiveMember() && isValidId(taskId) &&
         incoming().title is string && incoming().title.size() > 0 && incoming().title.size() <= 200 &&
-        incoming().projectId is string && incoming().projectId.size() <= 128;
+        incoming().projectId is string && incoming().projectId.size() <= 128 &&
+        incoming().assigneeId is string && incoming().assigneeId.size() > 0 &&
+        exists(/databases/$(database)/documents/users/$(request.resource.data.assigneeId)) &&
+        get(/databases/$(database)/documents/users/$(request.resource.data.assigneeId)).data.status == 'active';
 
       allow update: if isActiveMember() && (
         isAdmin() ||
