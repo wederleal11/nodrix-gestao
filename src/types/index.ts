@@ -117,7 +117,8 @@ export interface Task {
   links?: TaskLink[];
   images?: TaskImage[];
   activity?: TaskActivity[];
-  dependencies?: string;
+  dependencies?: string; // Legacy blocker field
+  predecessorIds?: string[]; // Canonical source; dependent tasks are derived
   
   // Blocker details
   blockerReason?: string;
