@@ -57,6 +57,7 @@ const MainApp: React.FC = () => {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [defaultTaskProjectId, setDefaultTaskProjectId] = useState<string>('');
+  const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
 
   const [inspectingTask, setInspectingTask] = useState<Task | null>(null);
 
@@ -228,7 +229,9 @@ const MainApp: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <main className="max-w-[1720px] w-full mx-auto p-4 sm:p-6 lg:p-7 flex-1">
+      <main className={currentView === 'tasks'
+        ? 'w-full max-w-none mx-auto p-3 sm:p-4 flex-none h-[calc(100dvh-3.5rem)] min-h-0 overflow-hidden flex flex-col'
+        : 'max-w-[1720px] w-full mx-auto p-4 sm:p-6 lg:p-7 flex-1'}>
         {(authError || dataError) && (
           <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
             <span>{dataError || authError}</span>
@@ -267,6 +270,7 @@ const MainApp: React.FC = () => {
             users={allUsers}
             onOpenTask={(t) => setInspectingTask(t)}
             onAddTask={() => handleOpenAddTask()}
+            focusTaskId={focusTaskId}
           />
         )}
 
@@ -376,6 +380,10 @@ const MainApp: React.FC = () => {
           users={allUsers}
           initialTask={editingTask}
           defaultProjectId={defaultTaskProjectId}
+          onSaved={(savedTask) => {
+            setFocusTaskId(savedTask.id);
+            setCurrentView('tasks');
+          }}
         />
       )}
 

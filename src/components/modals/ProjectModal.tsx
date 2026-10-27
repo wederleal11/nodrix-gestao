@@ -108,6 +108,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
     const selectedLeadId = leadId || profile.uid;
     const leadUser = users.find((u) => u.uid === selectedLeadId);
+    if (leadUser?.status !== 'active' && selectedLeadId !== initialProject?.leadId) {
+      setErrorMessage('O líder selecionado está inativo. Escolha um usuário ativo.');
+      return;
+    }
     const projectId = initialProject?.id || createProjectId();
 
     const projectData: Project = {
@@ -238,9 +242,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                 onChange={(e) => setLeadId(e.target.value)}
                 className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white cursor-pointer"
               >
-                {users.map((u) => (
-                  <option key={u.uid} value={u.uid}>
-                    {u.name}
+                {users.filter((u) => u.status === 'active' || u.uid === initialProject?.leadId).map((u) => (
+                  <option key={u.uid} value={u.uid} disabled={u.status !== 'active'}>
+                    {u.name}{u.status !== 'active' ? ' (Inativo — vínculo anterior)' : ''}
                   </option>
                 ))}
               </select>

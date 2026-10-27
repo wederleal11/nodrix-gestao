@@ -13,6 +13,7 @@ interface TaskModalProps {
   users: UserProfile[];
   initialTask?: Task | null;
   defaultProjectId?: string;
+  onSaved?: (task: Task) => void;
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
@@ -22,6 +23,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   users,
   initialTask,
   defaultProjectId,
+  onSaved,
 }) => {
   const { profile } = useAuth();
 
@@ -54,7 +56,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const pendingRef = useRef<PendingTaskImage[]>([]);
   useEffect(() => { pendingRef.current = pendingImages; }, [pendingImages]);
   useEffect(() => () => {
-    pendingRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl));
+    pendingRef.current.forEach((image) => { if (image.previewUrl) URL.revokeObjectURL(image.previewUrl); });
   }, []);
 
   const queueImages = (files: File[]) => {
@@ -64,10 +66,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       const invalid = validateTaskImage(file);
       if (invalid) { setImageError(invalid); continue; }
       if ((initialTask?.images?.length || 0) + pendingRef.current.length + accepted.length >= MAX_TASK_IMAGES) {
-        setImageError(`Limite de ${MAX_TASK_IMAGES} imagens por demanda.`);
+        setImageError(`Limite de ${MAX_TASK_IMAGES} anexos por demanda.`);
         break;
       }
-      accepted.push({ id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) });
+      accepted.push({
+        id: crypto.randomUUID(),
+        file,
+        previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+      });
     }
     if (accepted.length) {
       pendingRef.current = [...pendingRef.current, ...accepted];
@@ -78,7 +84,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
   const removePendingImage = (id: string) => {
     const removed = pendingRef.current.find((image) => image.id === id);
-    if (removed) URL.revokeObjectURL(removed.previewUrl);
+    if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
     pendingRef.current = pendingRef.current.filter((image) => image.id !== id);
     setPendingImages(pendingRef.current);
   };
@@ -140,6 +146,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       return;
     }
 
+    if (!initialTask && !assigneeId) {
+      setFormTab('base');
+      setErrorMessage('Selecione um responsável principal ativo antes de criar a demanda.');
+      return;
+    }
+
     if (status === 'in_progress') {
       if (!assigneeId) {
         setFormTab('base');
@@ -155,6 +167,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
     const selectedProject = projects.find((p) => p.id === projectId);
     const selectedAssignee = users.find((u) => u.uid === assigneeId);
+    if (assigneeId && selectedAssignee?.status !== 'active' && assigneeId !== initialTask?.assigneeId) {
+      setFormTab('base');
+      setErrorMessage('O responsável está inativo ou indisponível. Selecione um usuário ativo.');
+      return;
+    }
 
     const taskId = initialTask?.id || `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const taskData: Task = {
@@ -200,6 +217,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         uploadedImages,
       );
       saved = true;
+      onSaved?.(taskData);
       onClose();
     } catch (err: unknown) {
       setErrorMessage(formatTaskImageError(err));
@@ -257,7 +275,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             {([
               ['base','Dados'],
               ['delivery','Entrega'],
-              ['images',`Imagens (${pendingImages.length + (initialTask?.images?.length || 0)})`],
+              ['images',`Anexos (${pendingImages.length + (initialTask?.images?.length || 0)})`],
               ['extra','Checklist e links'],
             ] as const).map(([tab,label])=>(
               <button type="button" key={tab} role="tab" aria-selected={formTab === tab} onClick={()=>setFormTab(tab)}
@@ -305,17 +323,17 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
             <div>
               <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
-                Responsável principal
+                Responsável principal <span className="text-red-500 font-semibold">*</span>
               </label>
               <select
                 value={assigneeId}
                 onChange={(e) => setAssigneeId(e.target.value)}
                 className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white cursor-pointer"
               >
-                <option value="">Sem responsável definido</option>
-                {users.map((u) => (
-                  <option key={u.uid} value={u.uid}>
-                    {u.name} ({u.role === 'admin' ? 'Gestor' : 'Dev'})
+                <option value="" disabled={!initialTask}>Selecione um responsável</option>
+                {users.filter((u) => u.status === 'active' || u.uid === initialTask?.assigneeId).map((u) => (
+                  <option key={u.uid} value={u.uid} disabled={u.status !== 'active'}>
+                    {u.name} ({u.status !== 'active' ? 'Inativo — atribuição anterior' : u.role === 'admin' ? 'Gestor' : 'Dev'})
                   </option>
                 ))}
               </select>

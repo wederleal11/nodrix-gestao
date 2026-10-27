@@ -47,7 +47,8 @@ export const TeamView: React.FC<TeamViewProps> = ({
     return () => unsub();
   }, [todayStr]);
 
-  const selectedMember = users.find((u) => u.uid === activeTabMemberId) || users[0];
+  const activeMembers = users.filter((user) => user.status === 'active');
+  const selectedMember = activeMembers.find((u) => u.uid === activeTabMemberId) || activeMembers[0];
   const memberTasks = tasks.filter((t) => t.assigneeId === selectedMember?.uid);
 
   const p0Task = memberTasks.find(
@@ -77,7 +78,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
       <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
         {/* Member selector tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto">
-          {users.map((member) => {
+          {activeMembers.map((member) => {
             const isSelected = member.uid === selectedMember?.uid;
             const hasCheckin = todayCheckins.some((c) => c.userId === member.uid);
 

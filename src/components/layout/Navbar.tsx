@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   User,
   LogOut,
@@ -22,6 +22,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { profile, activeProfile, activeUserId, setActiveUserId, signOut, isAdmin, isSuperAdmin } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (activeUserId && users.some((user) => user.uid === activeUserId && user.status !== 'active')) {
+      setActiveUserId(profile?.uid || '');
+    }
+  }, [activeUserId, users, profile?.uid, setActiveUserId]);
 
   // Executive Top Bar Navigation
   const navItems = [
@@ -83,7 +89,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right: User Switcher & Profile */}
         <div className="flex items-center gap-3 shrink-0">
           {/* Fast Perspective Switcher */}
-          {isAdmin && users.length > 1 && (
+          {isAdmin && users.filter((u) => u.status === 'active').length > 1 && (
             <div className="hidden lg:flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/60 rounded px-2.5 py-1 text-xs">
               <span className="text-[10px] uppercase font-bold text-slate-400">Visão:</span>
               <select
@@ -91,7 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onChange={(e) => setActiveUserId(e.target.value)}
                 className="bg-transparent text-slate-200 text-xs font-medium focus:outline-none cursor-pointer"
               >
-                {users.map((u) => {
+                {users.filter((u) => u.status === 'active').map((u) => {
                   const isUserSuperAdmin = u.isSuperAdmin || u.email.toLowerCase() === 'wederleal11@gmail.com';
                   return (
                     <option key={u.uid} value={u.uid} className="bg-slate-900 text-white">

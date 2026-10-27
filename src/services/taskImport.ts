@@ -111,6 +111,10 @@ export function previewTaskImport(
     if(!data.title || data.title.length>200){errors.push(`Linha ${number}: título obrigatório (máximo 200 caracteres).`);continue;}
     if(!project){errors.push(`Linha ${number}: ${resolved.issue}`);continue;}
     if(project.isArchived){errors.push(`Linha ${number}: projeto arquivado não aceita demandas.`);continue;}
+    if (!data.assignee) {
+      errors.push(`Linha ${number}: informe um responsável ativo para criar a demanda.`);
+      continue;
+    }
     const matchingUser=data.assignee ? users.filter((u)=>u.uid===data.assignee || u.email.toLowerCase()===data.assignee.toLowerCase() || normalize(u.name)===normalize(data.assignee)) : [];
     const activeUsers=matchingUser.filter((u)=>u.status==='active');
     // Historical seeded IDs sometimes duplicate the same Google identity.
@@ -164,14 +168,22 @@ export async function importTasksBatch(rows:Task[],actor:UserProfile):Promise<vo
   if(!rows.length || rows.length>100)throw Error('Lote inválido: informe de 1 a 100 demandas.');
   if(actor.status!=='active' || actor.role!=='admin' && !actor.isSuperAdmin)
     throw Error('Somente gestores autorizados podem importar demandas.');
+  if(rows.some((row) => !row.assigneeId?.trim())) {
+    throw Error('Todas as demandas importadas precisam de responsável ativo.');
+  }
 
   // Re-read authoritative server data immediately before the write. This catches
   // tasks added while the preview was open, including legacy random document IDs.
   const projectIds = [...new Set(rows.map((row)=>row.projectId))];
-  const [projectSnapshots, taskSnapshots] = await Promise.all([
+  const userIds = [...new Set(rows.map((row) => row.assigneeId!))];
+  const [projectSnapshots, taskSnapshots, assigneeSnapshots] = await Promise.all([
     Promise.all(projectIds.map((projectId)=>getDocFromServer(doc(db,'projects',projectId)))),
     Promise.all(projectIds.map((projectId)=>getDocsFromServer(query(collection(db,'tasks'),where('projectId','==',projectId))))),
+    Promise.all(userIds.map((uid) => getDocFromServer(doc(db, 'users', uid)))),
   ]);
+  if(assigneeSnapshots.some((snap) => !snap.exists() || snap.data()?.status !== 'active')) {
+    throw Error('Um responsável foi desativado após a prévia. Atualize a importação.');
+  }
   const liveProjects=new Set(projectSnapshots.filter((snap)=>snap.exists() && !snap.data()?.isArchived).map((snap)=>snap.id));
   for(const row of rows)if(!liveProjects.has(row.projectId))throw Error(`Projeto ${row.projectName} não está mais ativo. Atualize a prévia.`);
   const liveKeys=new Set(taskSnapshots.flatMap((snap)=>snap.docs).map((snap)=>duplicateKey(snap.data().projectId,snap.data().title)));

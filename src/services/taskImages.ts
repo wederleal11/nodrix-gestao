@@ -4,17 +4,25 @@ import type { TaskImage } from '../types';
 
 export const MAX_TASK_IMAGE_BYTES = 6 * 1024 * 1024;
 export const MAX_TASK_IMAGES = 12;
-const IMAGE_TYPES: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
+const ATTACHMENT_TYPES: Record<string, readonly string[]> = {
+  'image/jpeg': ['jpg', 'jpeg'],
+  'image/png': ['png'],
+  'image/webp': ['webp'],
+  'image/gif': ['gif'],
+  'application/pdf': ['pdf'],
+  'application/msword': ['doc'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+  'application/vnd.ms-excel': ['xls'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
 };
 
 export function validateTaskImage(file: File): string | null {
-  if (!IMAGE_TYPES[file.type]) return 'Somente imagens JPG, PNG, WebP e GIF são permitidas.';
-  if (file.size === 0) return 'A imagem está vazia.';
-  if (file.size > MAX_TASK_IMAGE_BYTES) return 'Cada imagem deve ter no máximo 6 MB.';
+  const extension = file.name.split('.').pop()?.toLowerCase() || '';
+  if (!ATTACHMENT_TYPES[file.type]?.includes(extension)) {
+    return 'Formato não permitido. Use JPG, PNG, WebP, GIF, PDF, DOC, DOCX, XLS ou XLSX.';
+  }
+  if (file.size === 0) return 'O arquivo está vazio.';
+  if (file.size > MAX_TASK_IMAGE_BYTES) return 'Cada arquivo deve ter no máximo 6 MB.';
   return null;
 }
 
@@ -26,7 +34,8 @@ export async function uploadTaskImage(taskId: string, file: File, uid: string): 
   if (validationError) throw new Error(validationError);
   if (!taskId || !uid) throw new Error('Entre novamente antes de anexar imagens.');
   const id = crypto.randomUUID();
-  const storagePath = `task-images/${taskId}/${uid}/${id}.${IMAGE_TYPES[file.type]}`;
+  const extension = file.name.split('.').pop()!.toLowerCase();
+  const storagePath = `task-images/${taskId}/${uid}/${id}.${extension}`;
   await uploadBytes(ref(storage, storagePath), file, {
     contentType: file.type,
     customMetadata: { uploadedBy: uid },
@@ -34,7 +43,7 @@ export async function uploadTaskImage(taskId: string, file: File, uid: string): 
   });
   return {
     id,
-    name: file.name.replace(/[<>\\/]/g, '').slice(0, 120) || `imagem-${id.slice(0, 8)}`,
+    name: file.name.replace(/[<>\\/]/g, '').slice(0, 120) || `anexo-${id.slice(0, 8)}`,
     storagePath,
     contentType: file.type,
     size: file.size,

@@ -48,6 +48,11 @@ export const EventModal: React.FC<EventModalProps> = ({
       return;
     }
 
+    if (assigneeIds.some((uid) => !users.some((user) => user.uid === uid && user.status === 'active'))) {
+      setErrorMessage('Um participante foi desativado. Selecione apenas usuários ativos.');
+      return;
+    }
+
     const selectedProj = projects.find((p) => p.id === projectId);
     const eventId = `event_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
@@ -186,7 +191,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               Participantes envolvidos
             </label>
             <div className="flex flex-wrap gap-2">
-              {users.map((u) => {
+              {users.filter((u) => u.status === 'active').map((u) => {
                 const isSelected = assigneeIds.includes(u.uid);
                 return (
                   <button

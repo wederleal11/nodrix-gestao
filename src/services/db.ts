@@ -406,6 +406,9 @@ export async function saveTask(
   newlyUploadedImages: TaskImage[] = [],
 ): Promise<void> {
   const path = `tasks/${task.id}`;
+  if (isNew && !task.assigneeId?.trim()) {
+    throw new Error('Selecione um responsável antes de criar a demanda.');
+  }
   try {
     const safeTask = Object.fromEntries(Object.entries(task).filter(([, value]) => value !== undefined));
     const taskRef = doc(db, 'tasks', task.id);
