@@ -140,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* Quick Multi-User Perspective Switcher (Critical for testing collaborator flow & self-approval prevention) */}
-            {users.length > 1 && (
+            {users.filter((user) => user.status === 'active').length > 1 && (
               <div className="pt-1 border-t border-slate-800">
                 <label className="text-[10px] text-slate-400 block mb-1">
                   Alternar Usuário Ativo:
@@ -150,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onChange={(e) => setActiveUserId(e.target.value)}
                   className="w-full px-2 py-1 text-[11px] bg-slate-950 border border-slate-700 rounded text-slate-200"
                 >
-                  {users.map((u) => (
+                  {users.filter((u) => u.status === 'active').map((u) => (
                     <option key={u.uid} value={u.uid}>
                       {u.name} ({u.role === 'admin' ? 'Gestor' : 'Dev'})
                     </option>
