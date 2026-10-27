@@ -389,7 +389,7 @@ const MainApp: React.FC = () => {
       )}
 
       <TaskDetailModal
-        task={inspectingTask}
+        task={inspectingTask ? tasks.find((item) => item.id === inspectingTask.id) || inspectingTask : null}
         onClose={() => setInspectingTask(null)}
         onEdit={(t) => {
           setInspectingTask(null);

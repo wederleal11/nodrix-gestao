@@ -29,7 +29,7 @@ test('self links, duplicates, missing nodes and indirect cycles rejected', () =>
   assert.match(validatePredecessorSelection('a', ['missing'], tasks) || '', /não existe/);
   assert.match(validatePredecessorSelection('a', ['b', 'b'], tasks) || '', /duplicadas/);
   assert.match(validatePredecessorSelection('c', ['a'], tasks) || '', /circular/);
-  assert.equal(validatePredecessorSelection('c', ['b'], tasks), null);
+  assert.equal(validatePredecessorSelection('a', ['c'], tasks), null);
 });
 test('deleted predecessors remain counted as pending rather than disappearing', () => {
   const t = task('go-live', 'planned', ['removed']);
