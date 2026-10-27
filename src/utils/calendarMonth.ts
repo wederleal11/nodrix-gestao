@@ -23,3 +23,17 @@ export function monthHeading(date: Date): string {
   const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
+
+/** One local calendar key for each visible weekday; never derive via UTC. */
+export function weekDatesForOffset(weekOffset: number, now = new Date()) {
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+  const distance = (monday.getDay() + 6) % 7;
+  monday.setDate(monday.getDate() - distance + weekOffset * 7);
+  const today = localDateKey(now);
+  const names = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+  return names.map((dayName, i) => {
+    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i, 12);
+    const dateStr = localDateKey(date);
+    return { dateStr, dayName, formatted: `${date.getDate()}/${date.getMonth() + 1}`, isToday: dateStr === today };
+  });
+}
