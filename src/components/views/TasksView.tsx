@@ -33,6 +33,7 @@ import { KanbanColumnModal } from '../modals/KanbanColumnModal';
 import { TaskAvatar, ProjectPill, resolveTaskAssignee } from '../tasks/TaskIdentity';
 import { TaskBulkImportModal } from '../modals/TaskBulkImportModal';
 import { checklistProgress } from '../../utils/taskDependencies';
+import { TaskDeadlineQuickEdit } from '../tasks/TaskDeadlineQuickEdit';
 
 interface TasksViewProps {
   tasks: Task[];
@@ -53,11 +54,12 @@ export const TasksView: React.FC<TasksViewProps> = ({
   onAddTask,
   focusTaskId,
 }) => {
-  const { activeProfile, isAdmin } = useAuth();
+  const { activeProfile, profile, isAdmin } = useAuth();
 
   const focusedCardRef = useRef<HTMLDivElement | null>(null);
   const lastScrolledTaskRef = useRef<string | null>(null);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [deadlineTask, setDeadlineTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [projectFilter, setProjectFilter] = useState('all');
   const [assigneeFilter, setAssigneeFilter] = useState('all');
@@ -388,6 +390,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                     const late = isOverdue(t.deadline, t.status);
                     const isDragging = draggingTaskId === t.id;
                     const progress = checklistProgress(t);
+                    const mayChangeDeadline = isAdmin || profile?.uid === t.assigneeId;
 
                     return (
                       <div
@@ -451,13 +454,16 @@ export const TasksView: React.FC<TasksViewProps> = ({
                           </div>
                           {/* Keep deadline readable: only the project name may truncate. */}
                           {t.deadline ? (
-                            <div
-                              className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold shadow-2xs border ${
+                            <button type="button" draggable={false} disabled={!mayChangeDeadline}
+                              onClick={(event) => { event.stopPropagation(); setDeadlineTask(t); }}
+                              onMouseDown={(event) => event.stopPropagation()}
+                              aria-label={`Alterar prazo da demanda ${t.title}`}
+                              className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold shadow-2xs border ${mayChangeDeadline ? 'cursor-pointer hover:ring-1 hover:ring-blue-400' : 'cursor-default'} ${
                                 late
                                   ? 'bg-red-600 text-white border-red-700'
                                   : 'bg-slate-100 text-slate-900 border-slate-300'
                               }`}
-                              title={late ? 'Demanda com prazo expirado!' : `Prazo: ${formatDateBR(t.deadline)}`}
+                              title={mayChangeDeadline ? 'Clique para alterar o prazo' : late ? 'Prazo vencido' : `Prazo: ${formatDateBR(t.deadline)}`}
                             >
                               <Calendar className={`w-3 h-3 ${late ? 'text-white' : 'text-slate-700'}`} />
                               <span>{formatDateBR(t.deadline)}</span>
@@ -466,9 +472,15 @@ export const TasksView: React.FC<TasksViewProps> = ({
                                   Atrasada
                                 </span>
                               )}
-                            </div>
+                            </button>
                           ) : (
-                            <span className="shrink-0 text-[10px] text-slate-500 italic">Sem prazo</span>
+                            <button type="button" draggable={false} disabled={!mayChangeDeadline}
+                              onClick={(event) => { event.stopPropagation(); setDeadlineTask(t); }}
+                              onMouseDown={(event) => event.stopPropagation()}
+                              title={mayChangeDeadline ? 'Clique para definir o primeiro prazo' : 'Sem prazo'}
+                              className="shrink-0 text-[10px] text-slate-500 italic enabled:hover:text-blue-700 enabled:cursor-pointer">
+                              Sem prazo
+                            </button>
                           )}
                         </div>
                       </div>
@@ -488,6 +500,8 @@ export const TasksView: React.FC<TasksViewProps> = ({
         </div>
       )}
 
+      {deadlineTask && <TaskDeadlineQuickEdit key={deadlineTask.id} task={deadlineTask}
+        onClose={() => setDeadlineTask(null)} />}
       {showBulkImport && <TaskBulkImportModal
         projects={projects} users={users} tasks={tasks} onClose={() => setShowBulkImport(false)} />}
       {/* KANBAN COLUMN CREATE / EDIT MODAL */}
