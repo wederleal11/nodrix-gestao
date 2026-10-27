@@ -40,7 +40,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   onAddTask,
   onAddEvent,
 }) => {
-  const { profile, firebaseUser } = useAuth();
+  const { profile, firebaseUser, googleCalendarToken: googleToken, setGoogleCalendarToken } = useAuth();
   // Historical team members were seeded with placeholder UIDs. Only link an
   // alias if its email matches the signed-in Google identity exactly.
   const myAccountIds = useMemo(() => {
@@ -57,7 +57,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   const [selectedDate, setSelectedDate] = useState(() => localDateKey(new Date()));
   const [showWeekend, setShowWeekend] = useState(false);
   // Only the signed-in user can authorize the Google events rendered here.
-  const [googleToken, setGoogleToken] = useState<string | null>(null);
+  // Token is owned by AuthContext so toggling pages does not require consent again.
   const [googleEvents, setGoogleEvents] = useState<WeeklyEvent[]>([]);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -131,7 +131,7 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
     try {
       // User gesture triggers a fresh explicit Google consent dialog.
       const token = await authorizeGoogleCalendar(firebaseUser);
-      setGoogleToken(token);
+      setGoogleCalendarToken(token);
     } catch (error: unknown) {
       setGoogleError(error instanceof Error ? error.message : 'Não foi possível conectar ao Google.');
     } finally {

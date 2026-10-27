@@ -26,6 +26,9 @@ interface AuthContextType {
   loading: boolean;
   authError: string | null;
   allUsers: UserProfile[];
+  /** Temporary private OAuth credential retained only until sign-out or reload. */
+  googleCalendarToken: string | null;
+  setGoogleCalendarToken: (token: string | null) => void;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   updateProfileDetails: (updates: Partial<UserProfile>) => Promise<void>;
@@ -40,6 +43,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeUserId, setActiveUserId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [googleCalendarSession, setGoogleCalendarSession] = useState<{ uid: string; token: string } | null>(null);
+  const googleCalendarToken = googleCalendarSession?.uid === firebaseUser?.uid
+    ? googleCalendarSession.token : null;
+  const setGoogleCalendarToken = (token: string | null) => {
+    setGoogleCalendarSession(token && firebaseUser ? { uid: firebaseUser.uid, token } : null);
+  };
 
   // Test connection on boot
   useEffect(() => {
@@ -64,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setGoogleCalendarSession(current => current?.uid === user?.uid ? current : null);
       setLoading(true);
       setAuthError(null);
       setProfile(null);
@@ -192,6 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    setGoogleCalendarSession(null);
     await fbSignOut(auth);
     setProfile(null);
     setActiveUserId('');
@@ -217,6 +228,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         authError,
         allUsers,
+        googleCalendarToken,
+        setGoogleCalendarToken,
         signInWithGoogle,
         signOut,
         updateProfileDetails,
