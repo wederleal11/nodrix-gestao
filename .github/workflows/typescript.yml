@@ -34,6 +34,8 @@ jobs:
         run: npx tsx --test src/utils/taskDeadline.test.ts
       - name: Test private Google Calendar integration
         run: npx tsx --test src/services/googleCalendar.test.ts
+      - name: Test ascending Kanban due-date sorting
+        run: npx tsx --test src/utils/kanbanDeadlineOrder.test.ts
       - name: Check TypeScript
         run: npm run lint
       - name: Build client

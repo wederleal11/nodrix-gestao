@@ -33,6 +33,7 @@ import { KanbanColumnModal } from '../modals/KanbanColumnModal';
 import { TaskAvatar, ProjectPill, resolveTaskAssignee } from '../tasks/TaskIdentity';
 import { TaskBulkImportModal } from '../modals/TaskBulkImportModal';
 import { checklistProgress } from '../../utils/taskDependencies';
+import { sortTasksByDeadline } from '../../utils/kanbanDeadlineOrder';
 import { TaskDeadlineQuickEdit } from '../tasks/TaskDeadlineQuickEdit';
 
 interface TasksViewProps {
@@ -104,8 +105,12 @@ export const TasksView: React.FC<TasksViewProps> = ({
     return true;
   });
 
+  // Render-only order: closest due date first; overdue first, unplanned deadlines last.
+  // Firestore data stays unchanged. Realtime due-date edits re-sort automatically.
+  const sortedTasks = sortTasksByDeadline(filteredTasks);
+
   // A task with a legacy/removed status must remain visible and recoverable.
-  const unmappedTasks = filteredTasks.filter((task) => !columns.some((column) => column.id === task.status));
+  const unmappedTasks = sortedTasks.filter((task) => !columns.some((column) => column.id === task.status));
   const visibleColumns: KanbanColumn[] = unmappedTasks.length
     ? [...columns, {
         id: '__unmapped__',
@@ -344,7 +349,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
             const isUnmapped = col.id === '__unmapped__';
             const colTasks = isUnmapped
               ? unmappedTasks
-              : filteredTasks.filter((t) => t.status === col.id);
+              : sortedTasks.filter((t) => t.status === col.id);
             const isDragOver = dragOverColumnId === col.id;
 
             return (
