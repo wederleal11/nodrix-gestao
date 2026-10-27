@@ -515,7 +515,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           {task.status === 'completed' && (
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 font-medium flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Entrega validada e aprovada por {task.validatorName || 'Gestor'} em {formatDateTimeBR(task.validatedAt)}</span>
+              <span>{task.validatedAt
+                ? `Entrega validada e aprovada por ${task.validatorName || 'Gestor'} em ${formatDateTimeBR(task.validatedAt)}`
+                : 'Demanda registrada diretamente como concluída, sem validação de entrega registrada.'}</span>
             </div>
           )}
 

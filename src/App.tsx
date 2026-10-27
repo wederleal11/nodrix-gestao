@@ -28,6 +28,7 @@ import {
   subscribeTasks,
   subscribeWeeklyEvents,
   subscribePriorityRequests,
+  subscribeKanbanColumns,
 } from './services/db';
 import type {
   Project,
@@ -37,6 +38,7 @@ import type {
   Feedback,
   UserProfile,
   DailyCheckin,
+  KanbanColumn,
 } from './types';
 
 const MainApp: React.FC = () => {
@@ -49,6 +51,7 @@ const MainApp: React.FC = () => {
   // Firestore live state
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [kanbanColumns, setKanbanColumns] = useState<KanbanColumn[] | null>(null);
   const [events, setEvents] = useState<WeeklyEvent[]>([]);
   const [priorityRequests, setPriorityRequests] = useState<PriorityRequest[]>([]);
   const [dataError, setDataError] = useState<string | null>(null);
@@ -81,6 +84,7 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     if (!firebaseUser || !profile || profile.status !== 'active') {
       setDataError(null);
+      setKanbanColumns(null);
       return;
     }
 
@@ -100,12 +104,14 @@ const MainApp: React.FC = () => {
     }, onSubscriptionError);
     const unsubEvents = subscribeWeeklyEvents((data) => setEvents(data), onSubscriptionError);
     const unsubRequests = subscribePriorityRequests((data) => setPriorityRequests(data), onSubscriptionError);
+    const unsubKanban = subscribeKanbanColumns(setKanbanColumns, onSubscriptionError);
 
     return () => {
       unsubProjects();
       unsubTasks();
       unsubEvents();
       unsubRequests();
+      unsubKanban();
     };
   }, [firebaseUser, profile?.uid, profile?.status]);
 
@@ -265,6 +271,7 @@ const MainApp: React.FC = () => {
 
         {currentView === 'tasks' && (
           <TasksView
+            kanbanColumns={kanbanColumns}
             tasks={tasks}
             projects={projects}
             users={allUsers}
@@ -379,6 +386,7 @@ const MainApp: React.FC = () => {
           projects={projects}
           users={allUsers}
           tasks={tasks}
+          kanbanColumns={kanbanColumns}
           initialTask={editingTask}
           defaultProjectId={defaultTaskProjectId}
           onSaved={(savedTask) => {

@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { X, Plus, Trash2, ChevronRight, ChevronDown } from 'lucide-react';
 import { TaskPredecessorsPicker } from '../tasks/TaskPredecessorsPicker';
 import { validatePredecessorSelection } from '../../utils/taskDependencies';
-import type { Task, Project, UserProfile, PriorityLevel, TaskStatus, ChecklistItem, TaskLink } from '../../types';
+import type { Task, Project, UserProfile, PriorityLevel, TaskStatus, ChecklistItem, TaskLink, KanbanColumn } from '../../types';
+import { getKanbanStatusOptions, getDefaultNewTaskStatus, isConfiguredTaskStatus } from '../../utils/taskStatusOptions';
 import { saveTask } from '../../services/db';
 import { useAuth } from '../../context/AuthContext';
 import { TaskImages, type PendingTaskImage } from '../tasks/TaskImages';
@@ -14,6 +15,7 @@ interface TaskModalProps {
   projects: Project[];
   users: UserProfile[];
   tasks: Task[];
+  kanbanColumns: KanbanColumn[] | null;
   initialTask?: Task | null;
   defaultProjectId?: string;
   onSaved?: (task: Task) => void;
@@ -25,6 +27,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   projects,
   users,
   tasks,
+  kanbanColumns,
   initialTask,
   defaultProjectId,
   onSaved,
@@ -40,7 +43,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [acceptanceCriteria, setAcceptanceCriteria] = useState(initialTask?.acceptanceCriteria || '');
   const [assigneeId, setAssigneeId] = useState(initialTask?.assigneeId || '');
   const [priority, setPriority] = useState<PriorityLevel>(initialTask?.priority || 'P2');
-  const [status, setStatus] = useState<TaskStatus>(initialTask?.status || 'planned');
+  const [status, setStatus] = useState<TaskStatus>(initialTask?.status || 'backlog');
   const [deadline, setDeadline] = useState(initialTask?.deadline || '');
   const [checklist, setChecklist] = useState<ChecklistItem[]>(initialTask?.checklist || []);
   const [predecessorIds, setPredecessorIds] = useState<string[]>(initialTask?.predecessorIds || []);
@@ -108,6 +111,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   // Collapsible section like print 2
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [formTab, setFormTab] = useState<'base'|'delivery'|'images'|'extra'|'predecessors'>('base');
+  const configuredStages = getKanbanStatusOptions(kanbanColumns ?? []);
+  useEffect(() => {
+    if (!isOpen || initialTask || !kanbanColumns) return;
+    setStatus(current => isConfiguredTaskStatus(current, kanbanColumns)
+      ? current : (getDefaultNewTaskStatus(kanbanColumns) || ''));
+  }, [isOpen, initialTask, kanbanColumns]);
 
   if (!isOpen) return null;
 
@@ -151,6 +160,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       return;
     }
 
+    if (!initialTask && (!kanbanColumns || !isConfiguredTaskStatus(status, kanbanColumns))) {
+      setFormTab('base');
+      setErrorMessage('A etapa não está disponível no Kanban. Aguarde a sincronização ou selecione uma etapa atual.');
+      return;
+    }
     if (!initialTask && !assigneeId) {
       setFormTab('base');
       setErrorMessage('Selecione um responsável principal ativo antes de criar a demanda.');
@@ -374,16 +388,20 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
             <div>
               <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
-                Status inicial
+                {initialTask ? 'Status atual (alterar no Kanban)' : 'Status inicial'}
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white cursor-pointer"
+                disabled={!!initialTask || !kanbanColumns || configuredStages.length === 0}
+                className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white cursor-pointer disabled:bg-slate-50 disabled:cursor-not-allowed"
               >
-                <option value="backlog">Backlog</option>
-                <option value="planned">Planejada (Compromisso)</option>
-                <option value="in_progress">Em andamento</option>
+                {!kanbanColumns && <option value={status}>Carregando etapas...</option>}
+                {kanbanColumns && configuredStages.length === 0 && <option value="">Nenhuma etapa cadastrada</option>}
+                {initialTask && !configuredStages.some(c => c.id === initialTask.status) && (
+                  <option value={initialTask.status}>Etapa antiga ({initialTask.status})</option>
+                )}
+                {configuredStages.map(col => <option key={col.id} value={col.id}>{col.title}</option>)}
               </select>
             </div>
 
@@ -589,7 +607,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (!initialTask && (!kanbanColumns || configuredStages.length === 0))}
               className="px-5 py-2 bg-[#004e9a] hover:bg-[#003d7a] text-white font-medium rounded-lg transition-colors disabled:opacity-50 text-xs shadow-xs cursor-pointer flex items-center gap-1.5"
             >
               {isSubmitting ? 'Salvando...' : initialTask ? 'Atualizar demanda' : 'Cadastrar demanda'}

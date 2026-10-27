@@ -26,9 +26,7 @@ import {
 } from '../../utils/formatters';
 import {
   updateTaskStatus,
-  subscribeKanbanColumns,
   saveKanbanColumns,
-  DEFAULT_KANBAN_COLUMNS,
 } from '../../services/db';
 import { useAuth } from '../../context/AuthContext';
 import { KanbanColumnModal } from '../modals/KanbanColumnModal';
@@ -38,6 +36,7 @@ import { checklistProgress } from '../../utils/taskDependencies';
 
 interface TasksViewProps {
   tasks: Task[];
+  kanbanColumns: KanbanColumn[] | null;
   projects: Project[];
   users: UserProfile[];
   onOpenTask: (task: Task) => void;
@@ -47,6 +46,7 @@ interface TasksViewProps {
 
 export const TasksView: React.FC<TasksViewProps> = ({
   tasks,
+  kanbanColumns,
   projects,
   users,
   onOpenTask,
@@ -64,8 +64,8 @@ export const TasksView: React.FC<TasksViewProps> = ({
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // Kanban Columns state (customizable and persisted)
-  const [columns, setColumns] = useState<KanbanColumn[]>(DEFAULT_KANBAN_COLUMNS);
+  // Shared canonical registry from App, never a second independent subscription.
+  const columns = kanbanColumns ?? [];
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<KanbanColumn | null>(null);
 
@@ -73,14 +73,6 @@ export const TasksView: React.FC<TasksViewProps> = ({
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
   const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
-
-  // Subscribe to live custom columns from Firestore
-  useEffect(() => {
-    const unsub = subscribeKanbanColumns((cols) => {
-      setColumns(cols);
-    });
-    return () => unsub();
-  }, []);
 
   // Newly created tasks must be visible even when the user had filters enabled.
   useEffect(() => {
@@ -340,6 +332,11 @@ export const TasksView: React.FC<TasksViewProps> = ({
       </div>
 
       {/* Full-height Kanban: each column scrolls independently; every card is mounted. */}
+      {kanbanColumns === null ? (
+        <div role="status" className="flex-1 p-5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-600">
+          Carregando etapas do Kanban...
+        </div>
+      ) : (
       <div className="grid grid-flow-col auto-cols-[minmax(240px,1fr)] gap-3 items-stretch select-none flex-1 min-h-0 overflow-x-auto">
           {visibleColumns.map((col) => {
             const isUnmapped = col.id === '__unmapped__';
@@ -489,6 +486,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
             );
           })}
         </div>
+      )}
 
       {showBulkImport && <TaskBulkImportModal
         projects={projects} users={users} tasks={tasks} onClose={() => setShowBulkImport(false)} />}

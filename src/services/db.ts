@@ -1179,7 +1179,8 @@ export const DEFAULT_KANBAN_COLUMNS: KanbanColumn[] = [
 ];
 
 export function subscribeKanbanColumns(
-  onUpdate: (columns: KanbanColumn[]) => void
+  onUpdate: (columns: KanbanColumn[]) => void,
+  onError?: SubscriptionErrorHandler,
 ): Unsubscribe {
   const docRef = doc(db, 'system_settings', 'kanban_columns');
   return onSnapshot(
@@ -1195,8 +1196,9 @@ export function subscribeKanbanColumns(
       onUpdate(DEFAULT_KANBAN_COLUMNS);
     },
     (err) => {
-      console.warn('Error reading kanban columns:', err);
-      onUpdate(DEFAULT_KANBAN_COLUMNS);
+      reportFirestoreSubscriptionError('system_settings/kanban_columns', err, onError);
+      // Do not offer unrelated default stages if canonical rules deny reading.
+      if (!onError) onUpdate(DEFAULT_KANBAN_COLUMNS);
     }
   );
 }

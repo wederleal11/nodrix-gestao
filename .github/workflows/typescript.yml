@@ -26,6 +26,8 @@ jobs:
         run: npx tsx --test src/services/taskImages.test.ts
       - name: Test task dependency graph
         run: npx tsx --test src/utils/taskDependencies.test.ts
+      - name: Test canonical Kanban status selection
+        run: npx tsx --test src/utils/taskStatusOptions.test.ts
       - name: Check TypeScript
         run: npm run lint
       - name: Build client
