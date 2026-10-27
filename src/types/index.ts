@@ -167,6 +167,9 @@ export interface WeeklyEvent {
   projectName?: string;
   assigneeIds: string[];
   description?: string;
+  /** Google entries only exist in browser memory, not in shared Firestore. */
+  source?: 'google';
+  googleHtmlLink?: string;
   createdById: string;
   createdAt: string;
 }
