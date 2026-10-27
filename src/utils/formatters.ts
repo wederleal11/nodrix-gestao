@@ -1,4 +1,5 @@
 import type { PriorityLevel, TaskStatus, ProjectStatus } from '../types';
+import { localDateKey } from './calendarMonth';
 
 export function formatDateBR(dateStr?: string): string {
   if (!dateStr) return '-';
@@ -33,7 +34,7 @@ export function isOverdue(deadline?: string, status?: TaskStatus): boolean {
   if (!deadline) return false;
   if (status === 'completed' || status === 'cancelled') return false;
   
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateKey(new Date());
   return deadline < today;
 }
 
