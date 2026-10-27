@@ -8,6 +8,8 @@ import {
   Eye,
   GripVertical,
   Calendar,
+  ListChecks,
+  CheckCircle2 as ChecklistDoneIcon,
   AlertTriangle,
   Edit2,
   Trash2,
@@ -32,6 +34,7 @@ import { useAuth } from '../../context/AuthContext';
 import { KanbanColumnModal } from '../modals/KanbanColumnModal';
 import { TaskAvatar, ProjectPill, resolveTaskAssignee } from '../tasks/TaskIdentity';
 import { TaskBulkImportModal } from '../modals/TaskBulkImportModal';
+import { checklistProgress } from '../../utils/taskDependencies';
 
 interface TasksViewProps {
   tasks: Task[];
@@ -387,6 +390,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                   {colTasks.map((t) => {
                     const late = isOverdue(t.deadline, t.status);
                     const isDragging = draggingTaskId === t.id;
+                    const progress = checklistProgress(t);
 
                     return (
                       <div
@@ -416,7 +420,14 @@ export const TasksView: React.FC<TasksViewProps> = ({
                         <div className="text-[11px] text-slate-500 space-y-1 pl-5">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <TaskAvatar user={resolveTaskAssignee(users, t.assigneeId, t.assigneeName)} name={t.assigneeName} />
-                            <strong className="text-slate-800 truncate">{t.assigneeName || 'Não atribuído'}</strong>
+                            <strong className="text-slate-800 truncate min-w-0 flex-1">{t.assigneeName || 'Não atribuído'}</strong>
+                            {progress.total > 0 && (
+                              <span className={`inline-flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-[10px] font-bold ${progress.isComplete ? 'text-emerald-700 bg-emerald-50' : 'text-slate-600 bg-slate-100'}`}
+                                title={`Checklist: ${progress.completed} de ${progress.total} concluídos`}>
+                                {progress.isComplete ? <ChecklistDoneIcon className="w-3 h-3"/> : <ListChecks className="w-3 h-3"/>}
+                                {progress.completed}/{progress.total}
+                              </span>
+                            )}
                           </div>
                           {t.expectedResult && (
                             <p className="text-[10px] text-slate-400 truncate">

@@ -24,6 +24,8 @@ jobs:
         run: npx tsx --test src/services/taskImport.test.ts
       - name: Test task attachments
         run: npx tsx --test src/services/taskImages.test.ts
+      - name: Test task dependency graph
+        run: npx tsx --test src/utils/taskDependencies.test.ts
       - name: Check TypeScript
         run: npm run lint
       - name: Build client
