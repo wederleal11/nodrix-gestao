@@ -174,16 +174,17 @@ export const TasksView: React.FC<TasksViewProps> = ({
     let updatedList: KanbanColumn[];
     const exists = columns.some((c) => c.id === savedCol.id);
 
+    if (exists && editingColumn?.id !== savedCol.id) {
+      throw new Error('Já existe uma coluna com este identificador. Escolha outro.');
+    }
     if (exists) {
       updatedList = columns.map((c) => (c.id === savedCol.id ? savedCol : c));
     } else {
       updatedList = [...columns, savedCol];
     }
 
-    // Sort by order
     updatedList.sort((a, b) => a.order - b.order);
-
-    setColumns(updatedList);
+    // Realtime confirmation, not optimistic state, is the source of truth.
     await saveKanbanColumns(updatedList, actor);
   };
 
@@ -194,8 +195,13 @@ export const TasksView: React.FC<TasksViewProps> = ({
       email: activeProfile?.email || '',
     };
 
+    if (columns.find((col) => col.id === columnId)?.isSystem) {
+      throw new Error('Etapas essenciais não podem ser excluídas. Edite o título ou a cor.');
+    }
+    if (tasks.some((task) => task.status === columnId)) {
+      throw new Error('Mova as demandas desta etapa antes de excluir a coluna.');
+    }
     const updatedList = columns.filter((c) => c.id !== columnId);
-    setColumns(updatedList);
     await saveKanbanColumns(updatedList, actor);
   };
 
@@ -253,7 +259,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
             className="px-3 py-1.5 border border-slate-300 rounded-md bg-white text-slate-700 text-xs cursor-pointer"
           >
             <option value="all">Responsável: Todos</option>
-            {users.map((u) => (
+            {users.filter((u) => u.status === 'active').map((u) => (
               <option key={u.uid} value={u.uid}>{u.name}</option>
             ))}
           </select>
