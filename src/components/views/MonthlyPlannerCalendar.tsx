@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { CalendarDays, CheckCircle2, Clock3, Plus, Trash2 } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock3, Plus, Trash2, ExternalLink } from 'lucide-react';
 import type { Task, WeeklyEvent } from '../../types';
 import { formatDateBR, isOverdue } from '../../utils/formatters';
 import { localDateKey, monthGrid, monthHeading } from '../../utils/calendarMonth';
@@ -129,12 +129,21 @@ export const MonthlyPlannerCalendar: React.FC<Props> = ({
           <article key={event.id} className="group rounded-lg border border-slate-200 border-l-[3px] border-l-violet-600 p-3 bg-white">
             <div className="flex items-center justify-between gap-2 text-[10px] text-violet-700 font-semibold">
               <span className="inline-flex items-center gap-1"><Clock3 className="w-3 h-3"/>{event.time || 'Dia todo'}</span>
-              <button type="button" aria-label={`Excluir evento ${event.title}`} onClick={e => onDeleteEvent(event.id,e)}
-                className="p-1 text-slate-400 hover:text-red-600" title="Excluir compromisso">
-                <Trash2 className="w-3.5 h-3.5"/>
-              </button>
+              {event.source === 'google' ? (
+                event.googleHtmlLink && <a href={event.googleHtmlLink} target="_blank" rel="noopener noreferrer"
+                  aria-label="Abrir no Google Agenda" className="p-1 text-slate-400 hover:text-blue-700"
+                  title="Abrir evento Google">
+                  <ExternalLink className="w-3.5 h-3.5"/>
+                </a>
+              ) : (
+                <button type="button" aria-label={`Excluir evento ${event.title}`} onClick={e => onDeleteEvent(event.id,e)}
+                  className="p-1 text-slate-400 hover:text-red-600" title="Excluir compromisso">
+                  <Trash2 className="w-3.5 h-3.5"/>
+                </button>
+              )}
             </div>
             <strong className="block mt-1 text-xs text-slate-900 leading-snug">{event.title}</strong>
+            {event.source === 'google' && <span className="block mt-1 text-[10px] text-slate-500">Google</span>}
             {event.projectName && <p className="text-[10px] mt-1 text-slate-500 truncate">{event.projectName}</p>}
           </article>
         ))}

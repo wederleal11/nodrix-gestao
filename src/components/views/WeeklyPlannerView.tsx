@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar,
   CalendarDays,
@@ -8,12 +8,17 @@ import {
   Plus,
   Clock,
   Trash2,
+  Link2,
+  RefreshCw,
+  ExternalLink,
 } from 'lucide-react';
 import type { Task, WeeklyEvent, UserProfile, Project } from '../../types';
 import { formatDateBR, isOverdue } from '../../utils/formatters';
 import { MonthlyPlannerCalendar } from './MonthlyPlannerCalendar';
 import { localDateKey, monthAtOffset, monthHeading, weekDatesForOffset } from '../../utils/calendarMonth';
 import { deleteWeeklyEvent } from '../../services/db';
+import { authorizeGoogleCalendar, fetchGoogleCalendar } from '../../services/googleCalendar';
+import { monthGrid } from '../../utils/calendarMonth';
 import { useAuth } from '../../context/AuthContext';
 
 interface WeeklyPlannerViewProps {
@@ -51,6 +56,12 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [selectedDate, setSelectedDate] = useState(() => localDateKey(new Date()));
   const [showWeekend, setShowWeekend] = useState(false);
+  // Only the signed-in user can authorize the Google events rendered here.
+  const [googleToken, setGoogleToken] = useState<string | null>(null);
+  const [googleEvents, setGoogleEvents] = useState<WeeklyEvent[]>([]);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleConnecting, setGoogleConnecting] = useState(false);
 
   const targetMonth = useMemo(() => monthAtOffset(monthOffset), [monthOffset]);
   const personalTasks = useMemo(() =>
@@ -79,6 +90,54 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   const weekDates = useMemo(() => weekDatesForOffset(weekOffset), [weekOffset]);
 
   const displayedDates = showWeekend ? weekDates : weekDates.slice(0, 5);
+  const range = useMemo(() => {
+    if (viewMode === 'month') {
+      const dates = monthGrid(targetMonth);
+      const end = new Date(dates[dates.length - 1]);
+      end.setDate(end.getDate() + 1);
+      return { from: localDateKey(dates[0]), until: localDateKey(end) };
+    }
+    const end = new Date(weekDates[6].dateStr + 'T12:00:00');
+    end.setDate(end.getDate() + 1);
+    return { from: weekDates[0].dateStr, until: localDateKey(end) };
+  }, [targetMonth, weekDates, viewMode]);
+  const unifiedEvents = useMemo(() =>
+    [...personalEvents, ...googleEvents].sort((a, b) =>
+      a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || '') || a.title.localeCompare(b.title)),
+    [personalEvents, googleEvents]);
+
+  useEffect(() => {
+    if (!googleToken || !firebaseUser?.uid || profile?.status !== 'active') return;
+    const controller = new AbortController();
+    setGoogleLoading(true);
+    setGoogleError(null);
+    setGoogleEvents([]);
+    fetchGoogleCalendar(googleToken, range.from, range.until, firebaseUser.uid, controller.signal)
+      .then(items => { if (!controller.signal.aborted) setGoogleEvents(items); })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setGoogleEvents([]);
+          setGoogleError(error instanceof Error ? error.message : 'Não foi possível carregar a agenda Google.');
+        }
+      })
+      .finally(() => { if (!controller.signal.aborted) setGoogleLoading(false); });
+    return () => controller.abort();
+  }, [googleToken, range.from, range.until, firebaseUser?.uid, profile?.status]);
+
+  const connectGoogle = async () => {
+    if (!firebaseUser || profile?.status !== 'active') return;
+    setGoogleConnecting(true);
+    setGoogleError(null);
+    try {
+      // User gesture triggers a fresh explicit Google consent dialog.
+      const token = await authorizeGoogleCalendar(firebaseUser);
+      setGoogleToken(token);
+    } catch (error: unknown) {
+      setGoogleError(error instanceof Error ? error.message : 'Não foi possível conectar ao Google.');
+    } finally {
+      setGoogleConnecting(false);
+    }
+  };
 
   const handleDeleteEvent = async (eventId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -125,6 +184,12 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
             Minha agenda: {profile?.name || 'Minha conta'}
           </span>
 
+          <button type="button" onClick={() => void connectGoogle()} disabled={googleConnecting}
+            title="Autorizar leitura da sua agenda Google nesta sessão"
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-blue-800 hover:bg-slate-50 disabled:opacity-50">
+            {googleConnecting || googleLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin"/> : <Link2 className="h-3.5 w-3.5"/>}
+            {googleToken ? 'Atualizar Google' : 'Conectar Google'}
+          </button>
           <div role="group" aria-label="Visualização da agenda" className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 p-0.5">
             <button type="button" aria-pressed={viewMode === 'week'} onClick={() => setViewMode('week')}
               className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-semibold ${viewMode === 'week' ? 'bg-[#0066cc] text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}>
@@ -169,18 +234,22 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
         </div>
       </div>
 
+      {googleError && <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        Google Agenda: {googleError}
+        {googleToken && <button type="button" onClick={() => void connectGoogle()} className="ml-2 font-bold underline">Reconectar</button>}
+      </div>}
       {/* 2. Optional monthly calendar or existing weekly columns. */}
       {viewMode === 'month' ? (
         <MonthlyPlannerCalendar month={targetMonth} selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
-          tasks={personalTasks} events={personalEvents}
+          tasks={personalTasks} events={unifiedEvents}
           onOpenTask={onOpenTask} onAddEvent={onAddEvent}
           onDeleteEvent={handleDeleteEvent}/>
       ) : (
       <div className={`grid grid-cols-1 ${showWeekend ? 'md:grid-cols-7' : 'md:grid-cols-5'} gap-3 items-start`}>
         {displayedDates.map((col) => {
           const dayTasks = personalTasks.filter(task => task.deadline === col.dateStr);
-          const dayEvents = personalEvents.filter(event => event.date === col.dateStr);
+          const dayEvents = unifiedEvents.filter(event => event.date === col.dateStr);
 
           return (
             <div
@@ -211,14 +280,20 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" /> {ev.time || 'Dia todo'}
                       </span>
-                      <button
-                        onClick={(e) => handleDeleteEvent(ev.id, e)}
-                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-600"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      {ev.source === 'google' ? (
+                        ev.googleHtmlLink && <a href={ev.googleHtmlLink} target="_blank" rel="noopener noreferrer"
+                          aria-label="Abrir no Google Agenda" className="text-slate-400 hover:text-blue-700">
+                          <ExternalLink className="w-3 h-3"/>
+                        </a>
+                      ) : (
+                        <button onClick={(e) => handleDeleteEvent(ev.id, e)}
+                          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-600">
+                          <Trash2 className="w-3 h-3"/>
+                        </button>
+                      )}
                     </div>
                     <p className="font-bold text-slate-900 leading-tight">{ev.title}</p>
+                    {ev.source === 'google' && <span className="text-[10px] text-slate-500">Google</span>}
                     {ev.projectName && (
                       <p className="text-[10px] text-slate-500">{ev.projectName}</p>
                     )}
