@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { validatePredecessorSelection } from '../utils/taskDependencies';
+import { validateDeadlineRevision } from '../utils/taskDeadline';
 import type {
   Project,
   ProjectStatus,
@@ -419,7 +420,12 @@ export async function saveTask(
     const safeTask = Object.fromEntries(Object.entries(task).filter(([, value]) => value !== undefined));
     const taskRef = doc(db, 'tasks', task.id);
     if (isNew) {
-      await setDoc(taskRef, { ...safeTask, updatedAt: new Date().toISOString() });
+      await setDoc(taskRef, {
+        ...safeTask,
+        initialDeadline: task.deadline || '',
+        deadlineChanges: [],
+        updatedAt: new Date().toISOString(),
+      });
     } else {
       // Merge current attachments transactionally: a stale edit or checklist update
       // must never erase screenshots attached from another session.
@@ -435,6 +441,11 @@ export async function saveTask(
           // field operations. Never replace them with stale form data.
           activity: persisted.activity || [],
           images: [...currentImages, ...additions],
+          // Deadline updates are owned by updateTaskDeadline. An unrelated
+          // stale form submission must never overwrite a more recent deadline.
+          deadline: persisted.deadline || '',
+          initialDeadline: persisted.initialDeadline || persisted.deadline || '',
+          deadlineChanges: persisted.deadlineChanges || [],
           updatedAt: new Date().toISOString(),
         });
       });
@@ -450,6 +461,58 @@ export async function saveTask(
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/** Change due date without overwriting task content or its original deadline. */
+export async function updateTaskDeadline(
+  taskId: string,
+  nextDeadline: string,
+  justification: string,
+  actor: { id: string; name: string; email: string },
+  expectedDeadline: string,
+): Promise<void> {
+  const path = `tasks/${taskId}`;
+  if (!actor.id) throw new Error('Faça login para alterar o prazo.');
+  let taskTitle = '';
+  try {
+    await runTransaction(db, async (transaction) => {
+      const ref = doc(db, 'tasks', taskId);
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists()) throw new Error('A demanda não existe mais.');
+      const persisted = snapshot.data() as Task;
+      const previous = persisted.deadline || '';
+      if (previous !== expectedDeadline) {
+        throw new Error('O prazo foi alterado por outro usuário. Atualize a demanda.');
+      }
+      const error = validateDeadlineRevision(previous, nextDeadline, justification);
+      if (error) throw new Error(error);
+      taskTitle = persisted.title;
+      const changedAt = new Date().toISOString();
+      transaction.update(ref, {
+        deadline: nextDeadline,
+        initialDeadline: persisted.initialDeadline || previous || nextDeadline,
+        deadlineChanges: [...(persisted.deadlineChanges || []), {
+          from: previous,
+          to: nextDeadline,
+          reason: previous ? justification.trim() : 'Definição do primeiro prazo',
+          actorId: actor.id,
+          actorName: actor.name,
+          changedAt,
+        }],
+        updatedAt: changedAt,
+      });
+    });
+    await logAuditEvent({
+      action: 'Alteração de Prazo',
+      actorId: actor.id,
+      actorName: actor.name,
+      actorEmail: actor.email,
+      taskId,
+      details: `Alterou o prazo de "${taskTitle}" de ${expectedDeadline || 'Sem prazo'} para ${nextDeadline}. Motivo: ${expectedDeadline ? justification.trim() : 'Primeiro prazo definido'}`,
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }
 
