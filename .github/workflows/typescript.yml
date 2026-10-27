@@ -30,6 +30,8 @@ jobs:
         run: npx tsx --test src/utils/taskStatusOptions.test.ts
       - name: Test monthly calendar and default task assignee
         run: npx tsx --test src/utils/calendarMonth.test.ts src/utils/taskAssignee.test.ts
+      - name: Test local deadlines and Kanban revisions
+        run: npx tsx --test src/utils/taskDeadline.test.ts
       - name: Check TypeScript
         run: npm run lint
       - name: Build client
