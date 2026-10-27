@@ -1,4 +1,4 @@
-# Imagens em demandas — configuração necessária
+# Anexos em demandas — configuração necessária
 
 Os anexos agora usam o Firebase Storage (bucket indicado em `firebase-applet-config.json`),
 enquanto o Firestore nomeado mantém SOMENTE metadados e caminhos do arquivo.
@@ -8,14 +8,18 @@ A publicação das regras do Firestore **não** publica regras do Storage.
 1. Abrir [Firebase Console — Storage](https://console.firebase.google.com/project/gen-lang-client-0463405815/storage).
 2. Ativar o bucket `gen-lang-client-0463405815.firebasestorage.app` se ainda não existir.
    O Firebase pode exigir configuração de cobrança para criar/usar o Storage.
-3. Em **Storage → Regras**, publicar o conteúdo versionado de `storage.rules`.
+3. Em **Storage → Regras**, publicar o conteúdo versionado de `storage.rules`
+   **antes** de liberar uploads de PDF, Word e Excel no frontend.
    Não substituir o arquivo `firestore.rules`: são dois produtos diferentes.
-4. Testar com login Google: colar screenshot no formulário, upload por arquivo,
-   arrastar na área, salvar, reabrir, ver as miniaturas e remover um anexo próprio.
+4. Testar com login Google: colar screenshot, anexar PDF, DOC, DOCX, XLS e XLSX,
+   arrastar arquivos, salvar, reabrir, baixar documentos e remover um anexo próprio.
 5. Testar um usuário não autenticado: leitura e escrita de objetos devem ser negadas.
 
 ## Segurança e limites
-- JPG, PNG, WebP, GIF; até 6 MiB por imagem; máximo 12 por demanda.
+- JPG, JPEG, PNG, WebP, GIF, PDF, DOC, DOCX, XLS e XLSX; até 6 MiB
+  por arquivo; máximo 12 anexos por demanda.
+- A interface confere MIME e extensão; as regras do Storage impõem tipos MIME
+  e tamanho. Para validar o conteúdo binário real é necessário backend.
 - Nome aleatório no caminho, arquivos armazenados sob UID do autor.
 - Download permitido somente a usuários com login Google verificado; exclusão do
   objeto restrita ao uploader; o front não armazena URLs com tokens no Firestore.
