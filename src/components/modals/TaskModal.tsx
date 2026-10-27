@@ -415,13 +415,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
             <div>
               <label className="block text-[13px] font-medium text-slate-700 mb-1.5">
-                Prazo de entrega
+                {initialTask ? 'Prazo (altere pelo Kanban)' : 'Prazo de entrega'}
               </label>
               <input
                 type="date"
                 value={deadline}
+                disabled={Boolean(initialTask)}
                 onChange={(e) => setDeadline(e.target.value)}
-                className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white"
+                className="w-full h-10 px-3.5 border border-slate-200 rounded-lg text-slate-800 text-xs focus:outline-none focus:border-[#004e9a] focus:ring-1 focus:ring-[#004e9a]/30 transition-all bg-white disabled:bg-slate-100 disabled:text-slate-500"
               />
             </div>
           </div>
