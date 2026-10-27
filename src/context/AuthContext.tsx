@@ -44,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [googleCalendarSession, setGoogleCalendarSession] = useState<{ uid: string; token: string } | null>(null);
-  const googleCalendarToken = googleCalendarSession?.uid === firebaseUser?.uid
+  const googleCalendarToken = googleCalendarSession && firebaseUser && googleCalendarSession.uid === firebaseUser.uid
     ? googleCalendarSession.token : null;
   const setGoogleCalendarToken = (token: string | null) => {
     setGoogleCalendarSession(token && firebaseUser ? { uid: firebaseUser.uid, token } : null);
